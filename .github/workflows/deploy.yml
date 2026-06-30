@@ -135,7 +135,7 @@ jobs:
 
       - name: Scan de l'image backend (Trivy, bloquant si CRITICAL)
         if: github.event_name == 'push' || inputs.action == 'deploy'
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.tf.outputs.acr_server }}/audioprothese-backend:${{ env.TAG }}
           format: table
