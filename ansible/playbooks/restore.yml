@@ -1,0 +1,54 @@
+---
+# Restauration automatisée : récupère la dernière sauvegarde depuis MinIO
+# et la réinjecte dans PostgreSQL. Couvre l'exigence PRA "restauration
+# automatisée via Ansible".
+# Variables attendues : database_dsn, minio_root_user, minio_root_password.
+# Variable optionnelle : backup_file (sinon, la plus récente est utilisée).
+- name: Restauration PostgreSQL depuis MinIO
+  hosts: onprem
+  become: true
+  vars:
+    minio_bucket: audioprothese-backups
+  tasks:
+    - name: Configurer l'alias mc local
+      ansible.builtin.command: >
+        mc alias set local http://127.0.0.1:9000
+        "{{ minio_root_user }}" "{{ minio_root_password }}"
+      changed_when: false
+
+    - name: Déterminer la dernière sauvegarde (si non fournie)
+      ansible.builtin.shell: |
+        set -o pipefail
+        mc ls local/{{ minio_bucket }}/ | awk '{print $NF}' | sort | tail -n1
+      args:
+        executable: /bin/bash
+      register: latest
+      changed_when: false
+      when: backup_file is not defined
+
+    - name: Fixer le fichier à restaurer
+      ansible.builtin.set_fact:
+        restore_target: "{{ backup_file | default(latest.stdout | trim) }}"
+
+    - name: Échec si aucune sauvegarde trouvée
+      ansible.builtin.fail:
+        msg: "Aucune sauvegarde disponible dans MinIO."
+      when: restore_target | length == 0
+
+    - name: Télécharger la sauvegarde depuis MinIO
+      ansible.builtin.command: "mc cp local/{{ minio_bucket }}/{{ restore_target }} /tmp/{{ restore_target }}"
+      changed_when: true
+
+    - name: Restaurer dans PostgreSQL via conteneur postgres:16
+      ansible.builtin.shell: |
+        set -o pipefail
+        gunzip -c /tmp/{{ restore_target }} | \
+          docker run --rm -i postgres:16-alpine psql "{{ database_dsn }}"
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Nettoyer le fichier temporaire
+      ansible.builtin.file:
+        path: "/tmp/{{ restore_target }}"
+        state: absent

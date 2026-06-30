@@ -16,13 +16,18 @@ Région Poland Central, dimensionnement MVP. Tarifs indicatifs (USD, 2025).
 | PostgreSQL Flexible | B_Standard_B1ms | ~13 $/mois | Burstable, le moins cher |
 | Stockage PostgreSQL | 32 Go | ~4 $/mois | Minimum |
 | Azure Container Registry | Basic | ~5 $/mois | SKU le plus bas |
+| VM on-prem simulée (MinIO) | Standard_B1ms (2 Go) | ~15 $/mois | Burstable ; désactivable (`enable_onprem=false`) |
+| Stockage / IP de la VM on-prem | Disk 32 Go + IP | ~5 $/mois | Minimum |
 | Storage Account (état Terraform) | Standard_LRS | ~0–1 $ | Négligeable |
 | Load Balancer (Ingress) | Standard | ~3–4 $/mois | Mutualisé |
-| Adresse IP publique | Standard | ~3 $/mois | 1 seule |
-| **Total estimé 24/7** | | **~60-65 $/mois** | |
+| Adresse IP publique (app) | Standard | ~3 $/mois | 1 seule |
+| **Total estimé 24/7** | | **~80 $/mois** | |
 
-Avec extinction hors démonstration (voir §2), le coût réel tombe à
-**quelques dollars par mois**, laissant largement de la marge sur les 85 $.
+⚠️ À ~80 $/mois en 24/7, on frôle le crédit de 85 $ : le **teardown après chaque
+démo est indispensable**. Avec extinction hors démonstration (voir §2), le coût
+réel tombe à **quelques dollars par mois**. On peut aussi désactiver la VM
+on-prem (`enable_onprem=false`) pour économiser ~20 $/mois quand elle n'est pas
+nécessaire.
 
 ## 2. Leviers d'optimisation appliqués
 

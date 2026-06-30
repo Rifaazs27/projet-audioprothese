@@ -1,0 +1,38 @@
+# Configuration Alertmanager : route les alertes Prometheus vers Slack/Teams.
+#
+# Le webhook entrant est lu depuis un fichier (slack_api_url_file) afin de ne
+# PAS écrire l'URL secrète dans ce fichier versionné. En local, docker-compose
+# monte le fichier /etc/alertmanager/webhook_url (cf. SLACK_WEBHOOK_URL).
+global:
+  resolve_timeout: 5m
+  slack_api_url_file: /etc/alertmanager/webhook_url
+
+route:
+  receiver: equipe-slack
+  group_by: ["alertname", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+  routes:
+    - matchers:
+        - severity = "critical"
+      receiver: equipe-slack
+
+receivers:
+  - name: equipe-slack
+    slack_configs:
+      - channel: "#alertes-audioprothese"
+        send_resolved: true
+        title: "[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}"
+        text: >-
+          {{ range .Alerts }}*{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          {{ end }}
+
+  # --- Microsoft Teams (optionnel) ---
+  # Teams n'a pas de récepteur natif : on passe par un relais
+  # prometheus-msteams. Décommenter et déployer le relais pour l'activer.
+  # - name: equipe-teams
+  #   webhook_configs:
+  #     - url: "http://prometheus-msteams:2000/alertmanager"
+  #       send_resolved: true

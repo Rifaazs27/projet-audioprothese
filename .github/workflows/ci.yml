@@ -88,3 +88,23 @@ jobs:
       - run: terraform fmt -check -recursive
       - run: terraform init -backend=false
       - run: terraform validate
+
+  ansible-lint:
+    name: Ansible — syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ansible-core
+      - name: Vérifier la syntaxe des playbooks
+        working-directory: ansible
+        run: |
+          cp inventory.ini.example inventory.ini
+          sed -i 's/REMPLACER_PAR_IP_PUBLIQUE/127.0.0.1/' inventory.ini
+          for p in playbooks/*.yml; do
+            ansible-playbook --syntax-check "$p" \
+              -e minio_root_user=x -e minio_root_password=x -e minio_kms_key=x \
+              -e database_dsn=x
+          done

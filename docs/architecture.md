@@ -30,7 +30,16 @@ flowchart LR
       BE -->|TLS, firewall Azure| PG[(PostgreSQL Flexible)]
       ACR --> AKS
       BUD[Budget + alertes FinOps]
+      ALERT[Alertmanager] -->|webhook| SLACK[Slack / Teams]
+      PROM --> ALERT
     end
+
+    subgraph ONPREM[VNet séparé - on-premise simulé]
+      VM[VM Linux] --> MINIO[(MinIO chiffré)]
+    end
+
+    ANS[Ansible] -.configure.-> VM
+    PG -.pg_dump / restore.-> MINIO
 
     User[Utilisateur / Client] -->|HTTP / HTTPS| ING
 ```
@@ -61,6 +70,16 @@ flowchart LR
 - **Grafana** : visualisation (dashboard fourni) + exploration des logs.
 - **Loki + Promtail** : centralisation des logs applicatifs JSON (alternative
   économe à la stack ELK — voir `docs/monitoring.md`).
+- **Alertmanager** : route les alertes Prometheus vers **Slack/Teams** (webhook).
+
+### Volet « on-premise » simulé (hybride)
+- **VNet séparé** (10.20.0.0/16, sans peering) hébergeant une **VM Linux** qui
+  représente un site on-premise distinct.
+- **MinIO** (stockage objet **chiffré** SSE-S3) y stocke les **sauvegardes**
+  de la base — illustrant la « gestion des données sensibles on-premise » et le
+  stockage MinIO du cahier des charges.
+- **Ansible** configure la VM (Docker, MinIO) et automatise **sauvegarde** et
+  **restauration** PostgreSQL (cf. `ansible/` et `docs/pra-pca.md`).
 
 ## 3. Workflow CI/CD
 
@@ -111,6 +130,9 @@ sequenceDiagram
 | Région Poland Central | Région européenne récente et économique (RGPD). |
 | AKS kubenet mono-nœud | Réseau par défaut, sans VNet à gérer : déploiement fiable et automatisable. |
 | Connexion CI par az login user/pass | Simplicité de mise en route ; un service principal + OIDC est l'évolution recommandée en production. |
+| On-prem simulé par une VM dans un VNet séparé | Reproduit l'architecture hybride du cahier (cloud + on-premise) sans matériel physique. Le VNet non peeré matérialise un « autre réseau ». |
+| MinIO sur l'on-prem (et non Azure Blob) | Brique explicitement demandée par le cahier ; héberge les sauvegardes chiffrées côté « on-premise ». |
+| Ansible pour l'on-prem | Gestion de configuration demandée par le cahier : installe MinIO et automatise backup/restore (complète Terraform, qui gère le provisioning). |
 
 ## 5. Données
 

@@ -31,6 +31,7 @@ les images et déploie l'application.
 | `AZURE_TENANT_ID` | ID du tenant Azure AD |
 | `AZURE_SUBSCRIPTION_ID` | ID de l'abonnement (Azure for Students) |
 | `BUDGET_EMAIL` | E-mail pour les alertes de budget (FinOps) |
+| `SLACK_WEBHOOK_URL` | *(optionnel)* webhook Slack/Teams pour les alertes |
 
 > Le compte utilisé ne doit pas exiger de MFA (la connexion CI est non
 > interactive), et doit avoir le rôle **Contributor** sur l'abonnement.
@@ -46,10 +47,15 @@ les images et déploie l'application.
 Le pipeline enchaîne :
 1. `az login` (utilisateur / mot de passe) ;
 2. création automatique du Storage Account d'état Terraform ;
-3. `terraform apply` (AKS, ACR, PostgreSQL, budget) ;
+3. `terraform apply` (AKS, ACR, PostgreSQL, **VM on-prem + MinIO**, budget) ;
 4. build + push des images vers ACR, scan Trivy ;
 5. installation de l'Ingress NGINX ;
-6. déploiement Helm de l'application.
+6. déploiement Helm de l'application ;
+7. **Ansible** configure MinIO (chiffré) sur la VM on-prem.
+
+> Sauvegardes : le workflow `.github/workflows/backup.yml` (cron quotidien, ou
+> manuel) réalise un `pg_dump` vers MinIO et permet la **restauration** via
+> Ansible (`mode: restore`).
 
 À la fin du job, l'**URL d'accès** (IP publique de l'Ingress) est affichée dans
 les logs :

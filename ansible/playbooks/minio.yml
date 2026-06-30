@@ -1,0 +1,93 @@
+---
+# Déploie MinIO (stockage objet chiffré) sur la VM "on-premise".
+# Variables attendues (passées par -e ou par la CI) :
+#   minio_root_user, minio_root_password, minio_kms_key
+# Variables avec valeur par défaut : minio_bucket.
+- name: Déploiement de MinIO chiffré (on-prem)
+  hosts: onprem
+  become: true
+  vars:
+    minio_bucket: audioprothese-backups
+    minio_data_dir: /opt/minio/data
+  tasks:
+    - name: Installer Docker et dépendances
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - python3
+        state: present
+        update_cache: true
+
+    - name: Démarrer et activer Docker
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Créer le répertoire de données MinIO
+      ansible.builtin.file:
+        path: "{{ minio_data_dir }}"
+        state: directory
+        mode: "0750"
+
+    - name: Lancer le conteneur MinIO (chiffrement KMS activé)
+      community.docker.docker_container:
+        name: minio
+        image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+        state: started
+        restart_policy: always
+        command: server /data --console-address ":9001"
+        ports:
+          - "9000:9000"
+          - "9001:9001"
+        volumes:
+          - "{{ minio_data_dir }}:/data"
+        env:
+          MINIO_ROOT_USER: "{{ minio_root_user }}"
+          MINIO_ROOT_PASSWORD: "{{ minio_root_password }}"
+          # Active le KMS interne -> permet le chiffrement côté serveur (SSE).
+          MINIO_KMS_SECRET_KEY: "{{ minio_kms_key }}"
+      # community.docker peut manquer : fallback en CLI docker ci-dessous.
+      register: minio_container
+      ignore_errors: true
+
+    - name: Fallback — lancer MinIO via la CLI docker si le module manque
+      ansible.builtin.shell: |
+        docker rm -f minio 2>/dev/null || true
+        docker run -d --name minio --restart always \
+          -p 9000:9000 -p 9001:9001 \
+          -v {{ minio_data_dir }}:/data \
+          -e MINIO_ROOT_USER='{{ minio_root_user }}' \
+          -e MINIO_ROOT_PASSWORD='{{ minio_root_password }}' \
+          -e MINIO_KMS_SECRET_KEY='{{ minio_kms_key }}' \
+          minio/minio:RELEASE.2024-10-13T13-34-11Z server /data --console-address ":9001"
+      when: minio_container is failed
+      changed_when: true
+
+    - name: Installer le client MinIO (mc)
+      ansible.builtin.get_url:
+        url: https://dl.min.io/client/mc/release/linux-amd64/mc
+        dest: /usr/local/bin/mc
+        mode: "0755"
+
+    - name: Attendre que MinIO réponde
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 9000
+        timeout: 60
+
+    - name: Configurer l'alias mc local
+      ansible.builtin.command: >
+        mc alias set local http://127.0.0.1:9000
+        "{{ minio_root_user }}" "{{ minio_root_password }}"
+      changed_when: false
+
+    - name: Créer le bucket de sauvegardes
+      ansible.builtin.command: "mc mb --ignore-existing local/{{ minio_bucket }}"
+      changed_when: false
+
+    - name: Activer le chiffrement côté serveur (SSE-S3) sur le bucket
+      ansible.builtin.command: "mc encrypt set sse-s3 local/{{ minio_bucket }}"
+      register: enc
+      changed_when: "'Auto encryption' in enc.stdout or enc.rc == 0"
+      failed_when: enc.rc != 0 and 'already' not in enc.stderr

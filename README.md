@@ -45,9 +45,10 @@ Architecture détaillée et diagrammes : [`docs/architecture.md`](docs/architect
 | Base de données | PostgreSQL 16 (Azure Flexible Server) |
 | Conteneurs | Docker (images multi-stage, non-root) |
 | Orchestration | Kubernetes (AKS) · Helm |
-| IaC | Terraform (provider azurerm) |
+| IaC / Config | Terraform (provisioning) · Ansible (on-prem, MinIO, backup) |
+| On-premise (hybride) | VM Linux dans un VNet séparé · MinIO chiffré |
 | CI/CD | GitHub Actions (provision + déploiement automatisés) |
-| Supervision | Prometheus · Grafana · Loki (stack locale + optionnelle sur cluster) |
+| Supervision | Prometheus · Grafana · Loki · Alertmanager → Slack/Teams |
 | Sécurité | Trivy · CodeQL · Gitleaks · GitHub Secrets · RBAC · TLS PostgreSQL · conteneurs non-root |
 | FinOps | Région Poland Central · 1 nœud B2s_v2 · Azure Budget + alertes · teardown |
 
@@ -99,9 +100,10 @@ Guide détaillé (dont configuration des secrets) :
 ```
 app/backend        API FastAPI (+ tests, Dockerfile, métriques)
 app/frontend       SPA React (+ tests, Dockerfile nginx)
-infra/terraform    Infrastructure Azure as code (AKS, ACR, PostgreSQL, budget FinOps)
+infra/terraform    Infrastructure Azure as code (AKS, ACR, PostgreSQL, VM on-prem, budget)
+ansible            Playbooks on-premise : MinIO chiffré + backup/restore PostgreSQL
 k8s/helm           Chart Helm de l'application (RBAC, network policies, ingress TLS, HPA)
-monitoring         Configs Prometheus / Grafana / Loki (local + cluster)
+monitoring         Configs Prometheus / Grafana / Loki / Alertmanager (local + cluster)
 .github/workflows  Pipelines CI/CD et DevSecOps
 scripts            Déploiement, teardown FinOps, seed
 docs               Documentation complète (voir ci-dessous)

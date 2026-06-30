@@ -8,8 +8,9 @@ réalisation dans le dépôt.
 | Exigence (cahier des charges) | Réalisation | Emplacement |
 |---|---|---|
 | Code source versionné | Dépôt Git structuré | tout le dépôt |
-| Architecture cloud | AKS + ACR + PostgreSQL Flexible | `infra/terraform`, `docs/architecture.md` |
-| Infra-as-Code (Terraform/Ansible) | Terraform azurerm | `infra/terraform` |
+| Architecture cloud + on-premise (hybride) | AKS + ACR + PostgreSQL + VM on-prem (VNet séparé) | `infra/terraform`, `docs/architecture.md` |
+| Infra-as-Code (Terraform **et Ansible**) | Terraform (provisioning) + Ansible (config on-prem, MinIO, backup/restore) | `infra/terraform`, `ansible/` |
+| Stockage MinIO chiffré | MinIO (SSE-S3) sur la VM on-prem | `ansible/playbooks/minio.yml` |
 | Conteneurs | Dockerfiles multi-stage non-root | `app/*/Dockerfile` |
 | Orchestration Kubernetes | Chart Helm (Deployments, Ingress, HPA) | `k8s/helm` |
 | Fichiers de config (docker-compose, YAML K8s, scripts CI/CD) | Compose + Helm + Workflows | `docker-compose.yml`, `k8s/`, `.github/workflows` |
@@ -19,8 +20,9 @@ réalisation dans le dépôt.
 | Supervision : métriques | Prometheus + Grafana | `monitoring/`, `docs/monitoring.md` |
 | Supervision : logs | Loki + Promtail | `monitoring/`, `docs/monitoring.md` |
 | Dashboard (screenshot) | Dashboard Grafana provisionné | `monitoring/grafana/dashboards` |
-| Alertes (Slack/Teams) | Règles Prometheus + Alertmanager | `monitoring/prometheus/alerts.yml` |
-| PRA/PCA & runbooks | Sauvegardes, rollback, reconstruction | `docs/pra-pca.md`, `docs/runbooks.md` |
+| Alertes (Slack/Teams) | Règles Prometheus + Alertmanager → webhook Slack/Teams | `monitoring/alertmanager/alertmanager.yml`, valeurs kube-prometheus |
+| PRA/PCA & runbooks | Sauvegardes MinIO + restauration Ansible, rollback, reconstruction | `docs/pra-pca.md`, `ansible/`, `docs/runbooks.md` |
+| Réplication on-prem ↔ cloud | pg_dump → MinIO on-prem (Ansible, planifié) | `ansible/playbooks/backup.yml`, `.github/workflows/backup.yml` |
 | Gestion des coûts (M2 / FinOps) | Estimation, leviers, budget + alertes | `docs/finops-gestion-couts.md` |
 | Backlog | Backlog produit & technique | `docs/backlog.md` |
 | Diagramme de Gantt | Planning Mermaid | `docs/planning-gantt.md` |

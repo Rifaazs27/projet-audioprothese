@@ -54,9 +54,16 @@ Règles Prometheus (`monitoring/prometheus/alerts.yml`) :
 | `TauxErreur5xxEleve` | > 5 % d'erreurs 5xx sur 5 min | warning |
 | `LatenceElevee` | p95 > 1 s sur 5 min | warning |
 
-Sur le cluster, Alertmanager (fourni par kube-prometheus-stack) route les
-alertes ; un récepteur Slack/Teams/e-mail peut être branché (cf. cahier des
-charges « alertes envoyées à l'équipe via Slack/Teams »).
+**Alertmanager** route ces alertes vers **Slack/Teams** via un webhook :
+- en local : service `alertmanager` du `docker-compose`, config
+  `monitoring/alertmanager/alertmanager.yml` (le webhook est lu depuis un
+  fichier, jamais commité ; défini par `SLACK_WEBHOOK_URL`) ;
+- sur le cluster : bloc `alertmanager.config` de
+  `monitoring/k8s/kube-prometheus-stack-values.yaml` (remplacer l'URL du
+  webhook au déploiement).
+
+Microsoft Teams n'ayant pas de récepteur natif, un receiver `webhook_configs`
+vers un relais *prometheus-msteams* est fourni en commentaire.
 
 ## 5. Installation sur le cluster
 

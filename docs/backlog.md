@@ -38,6 +38,10 @@ MoSCoW (Must / Should / Could / Won't).
 | US-16 | Trafic chiffré TLS de bout en bout | E6 | Must | ✅ Fait |
 | US-17 | Network policies cloisonnent les pods | E6 | Should | ✅ Fait |
 | US-18 | Documentation d'installation et d'exploitation | E8 | Must | ✅ Fait |
+| US-26 | Simuler un site on-premise (réseau séparé) | E3 | Should | ✅ Fait |
+| US-27 | Stockage objet chiffré MinIO pour les sauvegardes | E5 | Should | ✅ Fait |
+| US-28 | Config on-prem + backup/restore via Ansible | E3 | Should | ✅ Fait |
+| US-29 | Alertes routées vers Slack/Teams (Alertmanager) | E5 | Should | ✅ Fait |
 
 ## 3. Backlog d'évolution (post-MVP)
 

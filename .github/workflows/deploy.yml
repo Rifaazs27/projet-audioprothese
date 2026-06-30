@@ -174,6 +174,36 @@ jobs:
             --set-string databaseUrl="$DBURL" \
             --wait --timeout 5m
 
+      - name: Configurer MinIO sur la VM on-prem (Ansible)
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        working-directory: ansible
+        run: |
+          set -euo pipefail
+          ONPREM=$(terraform -chdir=../$TF_ROOT output -raw onprem_enabled)
+          if [ "$ONPREM" != "true" ]; then
+            echo "On-prem désactivé — étape ignorée."; exit 0
+          fi
+          pip install --quiet ansible-core
+          ansible-galaxy collection install community.docker
+          # Clé SSH + inventaire générés depuis Terraform.
+          terraform -chdir=../$TF_ROOT output -raw onprem_ssh_private_key > onprem_id_rsa
+          chmod 600 onprem_id_rsa
+          IP=$(terraform -chdir=../$TF_ROOT output -raw onprem_public_ip)
+          USER=$(terraform -chdir=../$TF_ROOT output -raw onprem_admin_user)
+          printf '[onprem]\nonprem ansible_host=%s\n[onprem:vars]\nansible_user=%s\nansible_ssh_private_key_file=./onprem_id_rsa\n' "$IP" "$USER" > inventory.ini
+          MINIO_USER=$(terraform -chdir=../$TF_ROOT output -raw minio_root_user)
+          MINIO_PASS=$(terraform -chdir=../$TF_ROOT output -raw minio_root_password)
+          MINIO_KMS=$(terraform -chdir=../$TF_ROOT output -raw minio_kms_key)
+          echo "::add-mask::$MINIO_PASS"; echo "::add-mask::$MINIO_KMS"
+          # Laisse à la VM le temps de finir son démarrage (SSH prêt).
+          for i in $(seq 1 20); do ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+            -i onprem_id_rsa "$USER@$IP" true 2>/dev/null && break || sleep 15; done
+          ansible-playbook playbooks/minio.yml \
+            -e minio_root_user="$MINIO_USER" \
+            -e minio_root_password="$MINIO_PASS" \
+            -e minio_kms_key="$MINIO_KMS"
+          rm -f onprem_id_rsa
+
       - name: Afficher l'URL d'accès
         if: github.event_name == 'push' || inputs.action == 'deploy'
         run: |
@@ -186,7 +216,9 @@ jobs:
             [ -n "$IP" ] && break
             sleep 10
           done
+          MINIO=$(terraform -chdir=$TF_ROOT output -raw minio_endpoint 2>/dev/null || true)
           echo "==============================================="
           echo " Application accessible sur : http://$IP/"
           echo " API (Swagger)            : http://$IP/api/docs"
+          [ -n "$MINIO" ] && echo " MinIO (on-prem)          : $MINIO  (console :9001)"
           echo "==============================================="

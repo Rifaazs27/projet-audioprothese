@@ -9,8 +9,14 @@
 
 ## 2. Sauvegardes
 
-- **PostgreSQL Flexible Server** : sauvegardes automatiques chiffrées, rétention
+- **PostgreSQL Flexible Server** : sauvegardes automatiques managées, rétention
   **7 jours** (`backup_retention_days = 7`). Restauration *point-in-time* native.
+- **Sauvegardes applicatives vers MinIO (on-prem)** : un playbook Ansible
+  (`ansible/playbooks/backup.yml`) réalise un `pg_dump` et le pousse dans un
+  bucket **MinIO chiffré** (SSE-S3) hébergé sur la VM on-premise simulée. Cela
+  matérialise la **réplication cloud → on-premise** et le stockage MinIO
+  chiffré du cahier des charges. Planifié quotidiennement par le workflow
+  `.github/workflows/backup.yml`.
 - **Infrastructure** : entièrement reproductible via Terraform (`infra/terraform`).
   L'état (`tfstate`) est stocké de façon distante et versionnée.
 - **Images applicatives** : conservées et taguées dans Azure Container Registry.
@@ -36,21 +42,25 @@ régénérée par Terraform et réinjectée dans le Secret Kubernetes.
 ### Scénario C — Perte complète de l'environnement
 ```bash
 ./scripts/deploy.sh         # recrée toute l'infra + déploie (RTO ~30-45 min)
-./scripts/seed-db.sh        # ou restauration de sauvegarde
+# Restauration des données depuis MinIO (on-prem) via Ansible :
+cd ansible && ansible-playbook playbooks/restore.yml \
+  -e database_dsn="<dsn psql>" -e minio_root_user=... -e minio_root_password=...
 ```
+La restauration est aussi disponible en un clic via le workflow
+*Backup* → `restore` (Actions GitHub).
 
 ### Scénario D — Mauvais déploiement applicatif
 ```bash
 helm rollback audioprothese -n audioprothese     # retour à la révision précédente
 ```
 
-## 4. Réplication (perspective)
+## 4. Réplication cloud ↔ on-premise
 
-Le cahier des charges évoque une réplication on-premise ↔ cloud. Pour le MVP
-cloud, la résilience est assurée par les sauvegardes managées et l'IaC. Une
-**géo-réplication** (`geo_redundant_backup_enabled = true`) et un second
-cluster en région secondaire sont identifiés comme évolutions (coût × 2,
-hors budget Student).
+La réplication des données du cloud vers l'on-premise est assurée par les
+sauvegardes `pg_dump` poussées vers **MinIO** sur la VM on-prem (cf. §2). Pour
+aller plus loin, une **géo-réplication** Azure (`geo_redundant_backup_enabled`)
+et un second cluster en région secondaire sont identifiés comme évolutions
+(coût × 2, hors budget Student).
 
 ## 5. Tests du PRA
 
