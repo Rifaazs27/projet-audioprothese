@@ -176,29 +176,9 @@ jobs:
             -n ingress-nginx --create-namespace \
             --set controller.replicaCount=1 --wait --timeout 5m
 
-      - name: Déploiement de l'application (Helm)
-        if: github.event_name == 'push' || inputs.action == 'deploy'
-        run: |
-          set -euo pipefail
-          # Auto-réparation : une release laissée en pending-install/failed par
-          # un run interrompu casse l'upgrade. On la désinstalle d'abord.
-          if helm status audioprothese -n audioprothese >/dev/null 2>&1; then
-            ST=$(helm status audioprothese -n audioprothese -o json | jq -r '.info.status')
-            echo "État de la release existante : $ST"
-            if [ "$ST" != "deployed" ]; then
-              echo "Release dans un état non sain -> désinstallation."
-              helm uninstall audioprothese -n audioprothese --wait || true
-            fi
-          fi
-          helm upgrade --install audioprothese k8s/helm/audioprothese \
-            --namespace audioprothese --create-namespace \
-            --set image.registry="${{ steps.tf.outputs.acr_server }}" \
-            --set image.tag="$TAG" \
-            --set-string databaseUrl="$DBURL" \
-            --set serviceMonitor.enabled=true \
-            --wait --timeout 5m
-
       - name: Installer le monitoring (Prometheus, Grafana, Loki, Alertmanager)
+        # AVANT l'app : installe les CRDs (dont ServiceMonitor) nécessaires
+        # au chart applicatif.
         if: github.event_name == 'push' || inputs.action == 'deploy'
         run: |
           set -euo pipefail
@@ -232,6 +212,28 @@ jobs:
             --from-file=audioprothese-overview.json=monitoring/grafana/dashboards/audioprothese-overview.json \
             --dry-run=client -o yaml | kubectl apply -f -
           kubectl label configmap audioprothese-dashboard -n monitoring grafana_dashboard=1 --overwrite
+
+      - name: Déploiement de l'application (Helm)
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          set -euo pipefail
+          # Auto-réparation : une release laissée en pending-install/failed par
+          # un run interrompu casse l'upgrade. On la désinstalle d'abord.
+          if helm status audioprothese -n audioprothese >/dev/null 2>&1; then
+            ST=$(helm status audioprothese -n audioprothese -o json | jq -r '.info.status')
+            echo "État de la release existante : $ST"
+            if [ "$ST" != "deployed" ]; then
+              echo "Release dans un état non sain -> désinstallation."
+              helm uninstall audioprothese -n audioprothese --wait || true
+            fi
+          fi
+          helm upgrade --install audioprothese k8s/helm/audioprothese \
+            --namespace audioprothese --create-namespace \
+            --set image.registry="${{ steps.tf.outputs.acr_server }}" \
+            --set image.tag="$TAG" \
+            --set-string databaseUrl="$DBURL" \
+            --set serviceMonitor.enabled=true \
+            --wait --timeout 5m
 
       - name: Configurer MinIO sur la VM on-prem (Ansible)
         if: github.event_name == 'push' || inputs.action == 'deploy'
