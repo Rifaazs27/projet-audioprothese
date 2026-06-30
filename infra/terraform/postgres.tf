@@ -1,8 +1,9 @@
 # Mot de passe administrateur généré aléatoirement (jamais en clair dans Git).
+# Alphanumérique : 24 caractères = entropie largement suffisante, et aucun
+# caractère qui casserait une URL de connexion (pg_dump/libpq, SQLAlchemy...).
 resource "random_password" "postgres" {
-  length           = 24
-  special          = true
-  override_special = "!#%*-_"
+  length  = 24
+  special = false
 }
 
 # PostgreSQL Flexible Server en accès public + pare-feu "services Azure".

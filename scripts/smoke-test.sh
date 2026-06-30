@@ -26,7 +26,11 @@ curl -fsS "$BASE/api/patients" | grep -q 'SmokeTest' && ok "lecture patient"    
 [ -n "${PID:-}" ] && curl -fsS -X DELETE "$BASE/api/patients/$PID" >/dev/null && ok "suppression patient" || ko "suppression patient"
 
 hr; echo "2) Observabilité (métriques exposées)"
-curl -fsS "$BASE/metrics" | grep -q 'http_requests_total' && ok "/metrics expose les compteurs" || ko "/metrics"
+# On écrit dans un fichier avant de grep : évite le SIGPIPE (curl: 23) que
+# provoque "grep -q" en fermant le tuyau dès la 1re correspondance.
+curl -fsS "$BASE/metrics" -o /tmp/metrics.txt 2>/dev/null \
+  && grep -q 'http_requests_total' /tmp/metrics.txt \
+  && ok "/metrics expose les compteurs" || ko "/metrics"
 
 hr; echo "3) Swagger"
 curl -fsS "$BASE/api/docs" | grep -qi 'swagger\|openapi' && ok "Swagger /api/docs servi" || ko "Swagger"
