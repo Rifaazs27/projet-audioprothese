@@ -15,7 +15,7 @@ variable "enable_onprem" {
 variable "onprem_vm_size" {
   description = "Taille de la VM on-prem (FinOps : burstable)"
   type        = string
-  default     = "Standard_B1ms"
+  default     = "Standard_B2s_v2"
 }
 
 variable "onprem_admin_user" {
