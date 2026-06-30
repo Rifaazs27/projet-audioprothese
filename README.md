@@ -124,6 +124,7 @@ docs               Documentation complète (voir ci-dessous)
 | [contributions.md](docs/contributions.md) | Contributions individuelles |
 | [runbooks.md](docs/runbooks.md) | Procédures d'exploitation |
 | [livrables.md](docs/livrables.md) | Correspondance livrables ↔ cahier des charges |
+| [demo-checklist.md](docs/demo-checklist.md) | Déploiement, secrets, accès, tests à effectuer |
 
 ## 8. Conformité au cahier des charges
 
