@@ -84,7 +84,7 @@ jobs:
       ARM_TENANT_ID: "00000000-0000-0000-0000-000000000000"
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
       - run: terraform fmt -check -recursive
       - run: terraform init -backend=false
       - run: terraform validate
