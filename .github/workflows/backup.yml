@@ -51,7 +51,7 @@ jobs:
           echo "sa=$SA" >> "$GITHUB_OUTPUT"
           echo "ARM_ACCESS_KEY=$KEY" >> "$GITHUB_ENV"
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "1.10.3"
 
