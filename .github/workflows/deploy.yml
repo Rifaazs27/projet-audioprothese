@@ -189,6 +189,19 @@ jobs:
           kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
           kubectl label namespace monitoring kubernetes.io/metadata.name=monitoring --overwrite
 
+          # Auto-réparation : nettoie une release bloquée (pending-install/upgrade)
+          # laissée par un run interrompu, sinon "another operation in progress".
+          for rel in kube-prometheus-stack loki; do
+            if helm status "$rel" -n monitoring >/dev/null 2>&1; then
+              ST=$(helm status "$rel" -n monitoring -o json | jq -r '.info.status')
+              echo "Release $rel : état $ST"
+              if [ "$ST" != "deployed" ]; then
+                echo "-> nettoyage de $rel"
+                helm uninstall "$rel" -n monitoring --wait || true
+              fi
+            fi
+          done
+
           # Branche le webhook Slack/Teams uniquement s'il est défini.
           SLACK_OPT=""
           if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
