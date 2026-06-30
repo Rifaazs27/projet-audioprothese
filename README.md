@@ -125,6 +125,7 @@ docs               Documentation complète (voir ci-dessous)
 | [runbooks.md](docs/runbooks.md) | Procédures d'exploitation |
 | [livrables.md](docs/livrables.md) | Correspondance livrables ↔ cahier des charges |
 | [demo-checklist.md](docs/demo-checklist.md) | Déploiement, secrets, accès, tests à effectuer |
+| [validation-conformite.md](docs/validation-conformite.md) | Comment tester chaque exigence + matrice de conformité |
 
 ## 8. Conformité au cahier des charges
 
