@@ -30,7 +30,8 @@ az postgres flexible-server restore \
   --resource-group <rg> --name <nouveau-serveur> \
   --source-server <serveur> --restore-time "2026-06-30T10:00:00Z"
 ```
-Puis mettre à jour le secret `database-url` dans Key Vault.
+Puis relancer le workflow *Deploy* : la nouvelle chaîne de connexion est
+régénérée par Terraform et réinjectée dans le Secret Kubernetes.
 
 ### Scénario C — Perte complète de l'environnement
 ```bash

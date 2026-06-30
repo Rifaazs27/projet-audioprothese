@@ -17,19 +17,22 @@ automatisée, sécurisée et économe.
 ## 2. La solution en un coup d'œil
 
 ```
-Développeur ──push──▶ GitHub ──▶ GitHub Actions (CI)
-                                   ├─ lint + tests (back & front)
-                                   ├─ scan sécurité (Trivy, CodeQL, Gitleaks)
-                                   ├─ build images Docker ──▶ Azure ACR
-                                   └─ déploiement Helm ──▶ AKS (Kubernetes)
-                                                            │
-   Patients/RDV ◀── Ingress NGINX + TLS ◀── Frontend React │
-                                              Backend FastAPI ──▶ PostgreSQL Flexible
-                                                            │
-   Supervision : Prometheus + Grafana + Loki  ◀────────────┘
-   Secrets     : Azure Key Vault
-   Garde-fou   : budget FinOps + alertes e-mail
+Développeur ──push main──▶ GitHub Actions (CI + déploiement automatisé)
+                             ├─ lint + tests (back & front)
+                             ├─ scan sécurité (Trivy, CodeQL, Gitleaks)
+                             ├─ az login (user/pass) → Terraform apply
+                             ├─ build images Docker ──▶ Azure ACR
+                             └─ déploiement Helm ──▶ AKS (Kubernetes)
+                                                      │
+   Patients/RDV ◀── Ingress NGINX ◀── Frontend React │
+                                        Backend FastAPI ──▶ PostgreSQL Flexible
+                                                      │
+   Garde-fou : budget FinOps + alertes e-mail ◀───────┘
 ```
+
+> Déploiement **100 % piloté par la CI** : un `push` sur `main` provisionne
+> l'infrastructure Azure et déploie l'application, sans aucune étape manuelle.
+> Les secrets (identifiants Azure) sont stockés dans **GitHub Actions Secrets**.
 
 Architecture détaillée et diagrammes : [`docs/architecture.md`](docs/architecture.md).
 
@@ -43,10 +46,10 @@ Architecture détaillée et diagrammes : [`docs/architecture.md`](docs/architect
 | Conteneurs | Docker (images multi-stage, non-root) |
 | Orchestration | Kubernetes (AKS) · Helm |
 | IaC | Terraform (provider azurerm) |
-| CI/CD | GitHub Actions |
-| Supervision | Prometheus · Grafana · Loki |
-| Sécurité | Trivy · CodeQL · Gitleaks · Azure Key Vault · RBAC · Network Policies · TLS |
-| FinOps | Azure Budget + alertes, dimensionnement minimal, scripts de teardown |
+| CI/CD | GitHub Actions (provision + déploiement automatisés) |
+| Supervision | Prometheus · Grafana · Loki (stack locale + optionnelle sur cluster) |
+| Sécurité | Trivy · CodeQL · Gitleaks · GitHub Secrets · RBAC · TLS PostgreSQL · conteneurs non-root |
+| FinOps | Région Poland Central · 1 nœud B2s_v2 · Azure Budget + alertes · teardown |
 
 ## 4. Démarrage rapide (local)
 
@@ -78,24 +81,25 @@ cd app/backend && pip install -r requirements-dev.txt && pytest && ruff check .
 cd app/frontend && npm install && npm run test && npm run build
 ```
 
-## 5. Déploiement sur Azure
+## 5. Déploiement sur Azure (automatisé par la CI)
 
-Voir le guide pas à pas : [`docs/installation.md`](docs/installation.md).
-En résumé (poste équipé de `az`, `terraform`, `kubectl`, `helm`) :
+1. Renseigner 5 secrets GitHub (une seule fois) : `AZURE_USERNAME`,
+   `AZURE_PASSWORD`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `BUDGET_EMAIL`.
+2. **Pousser sur `main`** (ou lancer le workflow *Deploy* manuellement) : la CI
+   provisionne l'infra Azure, build/push les images et déploie l'application.
+3. L'URL d'accès (IP publique de l'Ingress) s'affiche à la fin du job.
+4. **Après la démo** : lancer le workflow *Deploy* avec l'action `destroy`
+   (ou `./scripts/teardown.sh`) pour stopper la facturation.
 
-```bash
-az login
-./scripts/deploy.sh        # provisionne l'infra + déploie l'application
-# ... démonstration ...
-./scripts/teardown.sh      # FinOps : détruit tout pour stopper la facturation
-```
+Guide détaillé (dont configuration des secrets) :
+[`docs/installation.md`](docs/installation.md).
 
 ## 6. Structure du dépôt
 
 ```
 app/backend        API FastAPI (+ tests, Dockerfile, métriques)
 app/frontend       SPA React (+ tests, Dockerfile nginx)
-infra/terraform    Infrastructure Azure as code (AKS, ACR, PostgreSQL, Key Vault, budget)
+infra/terraform    Infrastructure Azure as code (AKS, ACR, PostgreSQL, budget FinOps)
 k8s/helm           Chart Helm de l'application (RBAC, network policies, ingress TLS, HPA)
 monitoring         Configs Prometheus / Grafana / Loki (local + cluster)
 .github/workflows  Pipelines CI/CD et DevSecOps

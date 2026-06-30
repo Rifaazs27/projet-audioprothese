@@ -14,91 +14,82 @@ docker compose exec backend python -m app.seed   # données de démo
 Accès : frontend http://localhost:8080 · API http://localhost:8000/docs ·
 Grafana http://localhost:3000 (admin/admin) · Prometheus http://localhost:9090.
 
-## B. Déploiement sur Azure
+## B. Déploiement sur Azure — 100 % par la CI (recommandé)
 
-### B.1 Prérequis poste
+Tout est automatisé par le workflow **`.github/workflows/deploy.yml`**. Aucune
+commande manuelle : la CI se connecte à Azure, crée l'infrastructure, construit
+les images et déploie l'application.
 
-- Compte Azure Student (crédit 85 $).
-- CLI installés : `az`, `terraform` (≥ 1.6), `kubectl`, `helm`.
+### B.1 Configurer les secrets GitHub (une seule fois)
 
-```bash
-az login
-az account show          # vérifier l'abonnement actif
-```
-
-### B.2 (Recommandé) État Terraform distant
-
-Pour le travail en équipe, stockez le `tfstate` dans Azure :
-
-```bash
-az group create -n rg-tfstate-audioprothese -l francecentral
-az storage account create -n sttfstateaudio$RANDOM -g rg-tfstate-audioprothese -l francecentral --sku Standard_LRS
-# puis décommentez le bloc backend "azurerm" dans infra/terraform/providers.tf
-```
-
-### B.3 Provisionnement + déploiement automatisé
-
-```bash
-cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
-# éditez budget_alert_emails avec votre adresse
-
-./scripts/deploy.sh
-```
-
-Le script :
-1. exécute `terraform apply` (AKS, ACR, PostgreSQL, Key Vault, budget) ;
-2. configure `kubectl` ;
-3. installe ingress-nginx, cert-manager, kube-prometheus-stack et Loki ;
-4. déploie l'application via Helm.
-
-### B.4 Récupérer l'URL et tester
-
-```bash
-kubectl get ingress -n audioprothese
-kubectl get svc -n ingress-nginx ingress-nginx-controller   # IP publique
-```
-
-Pointez votre nom de domaine (ou `/etc/hosts`) vers l'IP de l'Ingress, puis
-ouvrez `https://<host>/`. Swagger : `https://<host>/api/docs`.
-
-### B.5 Données de démonstration
-
-```bash
-./scripts/seed-db.sh
-```
-
-## C. CI/CD — secrets GitHub à configurer
-
-Pour activer le déploiement automatique (`.github/workflows/cd-deploy.yml`),
-ajoutez dans **Settings → Secrets and variables → Actions** :
+**Settings → Secrets and variables → Actions → New repository secret** :
 
 | Secret | Description |
 |---|---|
-| `AZURE_CLIENT_ID` | App registration (fédération OIDC GitHub) |
-| `AZURE_TENANT_ID` | Tenant Azure |
-| `AZURE_SUBSCRIPTION_ID` | Abonnement |
-| `ACR_NAME` / `ACR_LOGIN_SERVER` | Registre de conteneurs |
-| `AKS_RESOURCE_GROUP` / `AKS_CLUSTER_NAME` | Cluster cible |
-| `APP_HOSTNAME` | Nom de domaine de l'application |
-| `BUDGET_EMAIL` | E-mail des alertes budget (workflow infra) |
+| `AZURE_USERNAME` | Identifiant de connexion Azure (`az login -u`) |
+| `AZURE_PASSWORD` | Mot de passe associé |
+| `AZURE_TENANT_ID` | ID du tenant Azure AD |
+| `AZURE_SUBSCRIPTION_ID` | ID de l'abonnement (Azure for Students) |
+| `BUDGET_EMAIL` | E-mail pour les alertes de budget (FinOps) |
 
-La fédération OIDC (pas de mot de passe stocké) se configure ainsi :
+> Le compte utilisé ne doit pas exiger de MFA (la connexion CI est non
+> interactive), et doit avoir le rôle **Contributor** sur l'abonnement.
+> Récupérer les IDs : `az account show` → `id` (subscription) et `tenantId`.
 
-```bash
-az ad app create --display-name "github-audioprothese"
-# Ajoutez un federated credential pour le sujet :
-#   repo:rifaazs27/projet-audioprothese:ref:refs/heads/main
-#   repo:rifaazs27/projet-audioprothese:environment:production
-# Puis attribuez les rôles Contributor + AcrPush sur le resource group.
+### B.2 Lancer le déploiement
+
+- **Automatique** : tout `push` sur `main` (hors fichiers `docs/`/markdown)
+  déclenche le provisionnement + déploiement.
+- **Manuel** : onglet **Actions → Deploy (Azure tout-en-un) → Run workflow**,
+  choisir `deploy`.
+
+Le pipeline enchaîne :
+1. `az login` (utilisateur / mot de passe) ;
+2. création automatique du Storage Account d'état Terraform ;
+3. `terraform apply` (AKS, ACR, PostgreSQL, budget) ;
+4. build + push des images vers ACR, scan Trivy ;
+5. installation de l'Ingress NGINX ;
+6. déploiement Helm de l'application.
+
+À la fin du job, l'**URL d'accès** (IP publique de l'Ingress) est affichée dans
+les logs :
+
+```
+ Application accessible sur : http://<IP>/
+ API (Swagger)             : http://<IP>/api/docs
 ```
 
-## D. Désactivation (FinOps — IMPORTANT)
+### B.3 Données de démonstration
+
+```bash
+az aks get-credentials -g rg-audioprothese-mvp -n aks-audioprothese-mvp
+kubectl exec -n audioprothese deploy/backend -- python -m app.seed
+```
+
+## C. Désactivation (FinOps — IMPORTANT)
 
 Après chaque démonstration, **détruisez l'infrastructure** pour ne pas
 consommer le crédit :
 
-```bash
-./scripts/teardown.sh
-```
+- **Manuel** : Actions → *Deploy (Azure tout-en-un)* → Run workflow → `destroy`.
+- **En local** : `./scripts/teardown.sh`.
 
 Voir [`finops-gestion-couts.md`](finops-gestion-couts.md) pour les détails.
+
+## D. Déploiement manuel en local (optionnel)
+
+Pour déboguer hors CI (poste équipé de `az`, `terraform`, `kubectl`, `helm`,
+`docker`) :
+
+```bash
+az login
+./scripts/deploy.sh
+```
+
+## E. Région et dimensionnement
+
+- Région : **Poland Central** (`polandcentral`).
+- Nœud AKS : **Standard_B2s_v2** (2 vCPU), 1 nœud, plan de contrôle gratuit.
+- PostgreSQL : Flexible Server **B_Standard_B1ms** (burstable).
+
+Ces valeurs sont dans `infra/terraform/variables.tf` et ajustables.

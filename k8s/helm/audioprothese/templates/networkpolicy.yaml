@@ -1,6 +1,8 @@
+{{- if .Values.networkPolicy.enabled }}
 # Cloisonnement réseau (defense-in-depth) :
 #  - le backend n'accepte le trafic que de l'ingress-nginx et du frontend ;
 #  - par défaut, tout le reste est refusé dans le namespace.
+# Nécessite un CNI qui applique les NetworkPolicy (Azure CNI / Calico).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -57,3 +59,4 @@ spec:
       ports:
         - protocol: TCP
           port: {{ .Values.frontend.port }}
+{{- end }}

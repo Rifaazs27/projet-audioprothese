@@ -34,7 +34,7 @@ MoSCoW (Must / Should / Could / Won't).
 | US-12 | Les logs sont centralisés (Loki) | E5 | Should | ✅ Fait |
 | US-13 | Des alertes se déclenchent en cas d'incident | E5 | Should | ✅ Fait |
 | US-14 | Les images sont scannées (Trivy) avant déploiement | E6 | Must | ✅ Fait |
-| US-15 | Les secrets sont dans Key Vault, pas dans Git | E6 | Must | ✅ Fait |
+| US-15 | Les secrets (Azure + DB) ne sont jamais dans Git | E6 | Must | ✅ Fait |
 | US-16 | Trafic chiffré TLS de bout en bout | E6 | Must | ✅ Fait |
 | US-17 | Network policies cloisonnent les pods | E6 | Should | ✅ Fait |
 | US-18 | Documentation d'installation et d'exploitation | E8 | Must | ✅ Fait |

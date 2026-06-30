@@ -11,9 +11,9 @@ variable "environment" {
 }
 
 variable "location" {
-  description = "Région Azure. France Central pour la conformité RGPD/HDS (données de santé)."
+  description = "Région Azure."
   type        = string
-  default     = "francecentral"
+  default     = "polandcentral"
 }
 
 # --- FinOps : dimensionnement volontairement minimal (compte Student 85 $) ---
@@ -24,9 +24,9 @@ variable "aks_node_count" {
 }
 
 variable "aks_node_size" {
-  description = "Taille des VM du pool AKS. B2s = ~30 $/mois, suffisant pour le MVP."
+  description = "Taille des VM du pool AKS."
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2s_v2"
 }
 
 variable "postgres_sku" {
@@ -54,7 +54,7 @@ variable "monthly_budget_amount" {
 }
 
 variable "budget_alert_emails" {
-  description = "Adresses notifiées par les alertes de budget"
+  description = "Adresses notifiées par les alertes de budget (vide = budget désactivé)"
   type        = list(string)
   default     = []
 }

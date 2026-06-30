@@ -18,22 +18,21 @@ flowchart LR
     CI -->|build & push images| ACR[(Azure Container Registry)]
     CI -->|helm upgrade| AKS
 
-    subgraph AZ[Azure - France Central]
+    subgraph AZ[Azure - Poland Central]
       subgraph AKS[Cluster AKS Kubernetes]
-        ING[Ingress NGINX + TLS] --> FE[Frontend React]
+        ING[Ingress NGINX] --> FE[Frontend React]
         ING --> BE[Backend FastAPI]
-        BE --> KV[(Azure Key Vault)]
         PROM[Prometheus] -. scrape /metrics .-> BE
         GRAF[Grafana] --> PROM
         GRAF --> LOKI[Loki]
         LOKI -. logs .- BE
       end
-      BE -->|réseau privé| PG[(PostgreSQL Flexible)]
+      BE -->|TLS, firewall Azure| PG[(PostgreSQL Flexible)]
       ACR --> AKS
       BUD[Budget + alertes FinOps]
     end
 
-    User[Utilisateur / Client] -->|HTTPS| ING
+    User[Utilisateur / Client] -->|HTTP / HTTPS| ING
 ```
 
 ## 2. Composants
@@ -52,8 +51,10 @@ flowchart LR
 - **cert-manager** : émission automatique des certificats TLS (Let's Encrypt).
 - **Azure Container Registry** : stockage des images, accès via identité managée
   (AcrPull), sans secret stocké.
-- **Azure Key Vault** : secrets centralisés (chaîne de connexion DB), injectés
-  dans les pods via le CSI Secrets Store driver + Workload Identity.
+- **Secrets applicatifs** : la chaîne de connexion à la base est produite par
+  Terraform et injectée par la CI dans un Secret Kubernetes (via Helm). Les
+  identifiants Azure sont stockés dans **GitHub Actions Secrets**. (Choix MVP :
+  pas d'Azure Key Vault, pour rester léger — cf. §4.)
 
 ### Observabilité
 - **Prometheus** : collecte des métriques (débit, latence, erreurs, ressources).
@@ -105,10 +106,11 @@ sequenceDiagram
 | AKS plutôt que VM | Orchestration, auto-réparation, scalabilité (HPA), exigence pédagogique Kubernetes. |
 | 1 nœud B2s | FinOps : plan de contrôle gratuit, nœud burstable à faible coût. |
 | Loki plutôt qu'ELK | ELK (Elasticsearch) est lourd en RAM/CPU/stockage. Loki indexe les labels, coût d'exploitation très inférieur — adapté au budget. |
-| Azure Key Vault plutôt que Vault auto-hébergé | Service managé gratuit à l'usage (pas de pod Vault à héberger/sauvegarder). Couvre l'exigence « gestion centralisée des secrets ». |
-| PostgreSQL Flexible (privé) | Base managée, sauvegardes automatiques (PRA), pas d'exposition publique (sécurité). |
-| Région France Central | Conformité RGPD / hébergement de données de santé (HDS). |
-| Identités managées + OIDC | Aucun secret cloud stocké dans GitHub (sécurité de la chaîne). |
+| Secrets dans GitHub Actions (pas de Key Vault) | Choix MVP « léger » : moins de pièces à gérer. Les identifiants Azure restent dans GitHub Secrets ; le secret DB est généré par Terraform et injecté via Helm. |
+| PostgreSQL Flexible (public + firewall Azure) | Base managée, sauvegardes automatiques (PRA). Accès limité aux ressources Azure + TLS obligatoire, sans la complexité d'un réseau privé (MVP léger). |
+| Région Poland Central | Région européenne récente et économique (RGPD). |
+| AKS kubenet mono-nœud | Réseau par défaut, sans VNet à gérer : déploiement fiable et automatisable. |
+| Connexion CI par az login user/pass | Simplicité de mise en route ; un service principal + OIDC est l'évolution recommandée en production. |
 
 ## 5. Données
 

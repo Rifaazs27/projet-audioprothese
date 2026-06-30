@@ -12,17 +12,15 @@ terraform {
     }
   }
 
-  # État distant : à activer après le bootstrap (voir docs/installation.md).
-  # Stocke le tfstate dans un compte de stockage Azure pour le travail en équipe.
-  # backend "azurerm" {
-  #   resource_group_name  = "rg-tfstate-audioprothese"
-  #   storage_account_name = "sttfstateaudio"
-  #   container_name       = "tfstate"
-  #   key                  = "mvp.tfstate"
-  # }
+  # État distant dans un Storage Account Azure. La configuration (nom du
+  # compte, conteneur, clé) est fournie par la CI via -backend-config, et le
+  # compte est créé automatiquement par le workflow (aucune action manuelle).
+  backend "azurerm" {}
 }
 
 provider "azurerm" {
+  # subscription_id est lu depuis ARM_SUBSCRIPTION_ID (exporté par la CI).
+  # L'authentification s'appuie sur la session `az login` de la CI.
   features {
     resource_group {
       # FinOps : permet de tout détruire facilement après la démo.

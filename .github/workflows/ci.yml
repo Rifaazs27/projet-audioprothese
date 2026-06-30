@@ -56,8 +56,20 @@ jobs:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
       - run: helm lint k8s/helm/audioprothese
-      - name: Rendu des manifests
-        run: helm template audioprothese k8s/helm/audioprothese --set image.registry=acr.example.io
+      - name: Rendu des manifests (sans hôte)
+        run: |
+          helm template audioprothese k8s/helm/audioprothese \
+            --set image.registry=acr.example.io \
+            --set-string databaseUrl='postgresql+psycopg://u:p@h:5432/db'
+      - name: Rendu des manifests (avec hôte + TLS + NetworkPolicy)
+        run: |
+          helm template audioprothese k8s/helm/audioprothese \
+            --set image.registry=acr.example.io \
+            --set-string databaseUrl='postgresql+psycopg://u:p@h:5432/db' \
+            --set ingress.host=audio.example.com \
+            --set ingress.tls.enabled=true \
+            --set networkPolicy.enabled=true \
+            --set serviceMonitor.enabled=true
 
   terraform-validate:
     name: Terraform — fmt & validate
@@ -65,6 +77,11 @@ jobs:
     defaults:
       run:
         working-directory: infra/terraform
+    # Valeurs factices : validate ne contacte pas Azure mais le provider
+    # azurerm v4 exige que subscription_id soit défini.
+    env:
+      ARM_SUBSCRIPTION_ID: "00000000-0000-0000-0000-000000000000"
+      ARM_TENANT_ID: "00000000-0000-0000-0000-000000000000"
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3

@@ -8,14 +8,14 @@ réalisation dans le dépôt.
 | Exigence (cahier des charges) | Réalisation | Emplacement |
 |---|---|---|
 | Code source versionné | Dépôt Git structuré | tout le dépôt |
-| Architecture cloud | AKS + ACR + PostgreSQL + Key Vault | `infra/terraform`, `docs/architecture.md` |
+| Architecture cloud | AKS + ACR + PostgreSQL Flexible | `infra/terraform`, `docs/architecture.md` |
 | Infra-as-Code (Terraform/Ansible) | Terraform azurerm | `infra/terraform` |
 | Conteneurs | Dockerfiles multi-stage non-root | `app/*/Dockerfile` |
 | Orchestration Kubernetes | Chart Helm (Deployments, Ingress, HPA) | `k8s/helm` |
 | Fichiers de config (docker-compose, YAML K8s, scripts CI/CD) | Compose + Helm + Workflows | `docker-compose.yml`, `k8s/`, `.github/workflows` |
 | CI/CD | GitHub Actions (build/test/scan/deploy) | `.github/workflows` |
-| Scan de vulnérabilités (Trivy/Clair) | Trivy (fs + image) + CodeQL + Gitleaks | `.github/workflows/security.yml`, `cd-deploy.yml` |
-| Sécurité (Vault, RBAC, TLS, RGPD/HDS) | Key Vault, RBAC, network policies, TLS, France Central | `docs/securite-devsecops.md` |
+| Scan de vulnérabilités (Trivy/Clair) | Trivy (fs + image) + CodeQL + Gitleaks | `.github/workflows/security.yml`, `deploy.yml` |
+| Sécurité (secrets, RBAC, TLS, RGPD) | GitHub Secrets, RBAC, NetworkPolicies, TLS, région UE | `docs/securite-devsecops.md` |
 | Supervision : métriques | Prometheus + Grafana | `monitoring/`, `docs/monitoring.md` |
 | Supervision : logs | Loki + Promtail | `monitoring/`, `docs/monitoring.md` |
 | Dashboard (screenshot) | Dashboard Grafana provisionné | `monitoring/grafana/dashboards` |
@@ -33,7 +33,7 @@ réalisation dans le dépôt.
 | Cours M2 | Couverture |
 |---|---|
 | DevSecOps | Trivy, CodeQL, Gitleaks, durcissement, secrets |
-| Azure / Architecture as a Service | AKS, ACR, PostgreSQL Flexible, Key Vault |
+| Azure / Architecture as a Service | AKS, ACR, PostgreSQL Flexible, Storage |
 | Gestion des configurations | Helm, Terraform, GitOps-ready |
 | CI/CD | GitHub Actions (CI + CD + infra) |
 | FinOps | `docs/finops-gestion-couts.md` |

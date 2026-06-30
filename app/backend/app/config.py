@@ -1,7 +1,7 @@
 """Configuration de l'application, chargée depuis l'environnement.
 
 Aucun secret n'est codé en dur : tout provient des variables
-d'environnement (injectées par docker-compose, Kubernetes ou Azure Key Vault).
+d'environnement (injectées par docker-compose ou par un Secret Kubernetes).
 """
 
 from functools import lru_cache

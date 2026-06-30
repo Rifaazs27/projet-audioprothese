@@ -27,7 +27,7 @@ gantt
     section Observabilité & Sécurité
     Monitoring (Prometheus/Grafana/Loki):done,    o1, 2026-04-13, 14d
     DevSecOps (Trivy/CodeQL/Gitleaks)   :done,    o2, after i3, 12d
-    TLS, Key Vault, durcissement        :done,    o3, after o1, 10d
+    TLS, secrets CI, durcissement       :done,    o3, after o1, 10d
 
     section Finalisation
     PRA/PCA & runbooks                  :active,  f1, 2026-05-11, 10d

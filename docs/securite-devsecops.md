@@ -8,7 +8,7 @@ depuis le code jusqu'à l'exécution en production.
 | Contrôle | Outil | Workflow |
 |---|---|---|
 | Vulnérabilités dépendances & IaC | **Trivy** (fs, misconfig) | `security.yml` |
-| Vulnérabilités des images | **Trivy** (image, bloquant si CRITICAL) | `cd-deploy.yml` |
+| Vulnérabilités des images | **Trivy** (image, bloquant si CRITICAL) | `deploy.yml` |
 | Analyse statique du code | **CodeQL** (Python + JS) | `security.yml` |
 | Fuite de secrets | **Gitleaks** | `security.yml` |
 | Scan hebdomadaire programmé | cron lundi 6h | `security.yml` |
@@ -19,14 +19,16 @@ Les rapports SARIF sont publiés dans l'onglet **Security** du dépôt GitHub.
 ## 2. Gestion des secrets
 
 - **Aucun secret en clair** dans le code ni dans Git (vérifié par Gitleaks).
-- **Azure Key Vault** stocke la chaîne de connexion à la base de données.
-  Le secret est généré aléatoirement par Terraform (`random_password`) et
-  jamais affiché.
-- Injection dans les pods via le **CSI Secrets Store driver** + **Workload
-  Identity** (cf. `k8s/helm/.../secretproviderclass.yaml`) : le secret n'existe
-  qu'en mémoire du pod, pas dans un manifeste.
-- **OIDC GitHub → Azure** : la CI/CD s'authentifie sans mot de passe stocké
-  (federated credentials), supprimant le risque de secret long terme exfiltré.
+- **Identifiants Azure** stockés dans **GitHub Actions Secrets** (chiffrés au
+  repos par GitHub, jamais exposés dans les logs).
+- **Mot de passe PostgreSQL** généré aléatoirement par Terraform
+  (`random_password`), marqué `sensitive`, jamais affiché. La chaîne de
+  connexion est masquée dans les logs CI (`::add-mask::`) puis injectée dans un
+  **Secret Kubernetes** par Helm — elle n'apparaît dans aucun manifeste versionné.
+- **Évolution recommandée** : passer à un service principal + **OIDC**
+  (federated credentials, sans mot de passe stocké) et centraliser les secrets
+  applicatifs dans Azure Key Vault. Volontairement écarté ici pour garder un
+  MVP léger.
 
 ## 3. Sécurité Kubernetes (RBAC & durcissement)
 
@@ -44,13 +46,17 @@ Les rapports SARIF sont publiés dans l'onglet **Security** du dépôt GitHub.
 
 ## 4. Cloisonnement réseau
 
-- **Network Policies** (`networkpolicy.yaml`) :
+- **Network Policies** fournies (`networkpolicy.yaml`, activables via
+  `networkPolicy.enabled=true`) :
   - `default-deny-ingress` : tout est refusé par défaut dans le namespace ;
   - le backend n'accepte que l'ingress-nginx, le frontend et Prometheus ;
   - le frontend n'accepte que l'ingress-nginx.
-- **PostgreSQL en réseau privé** : sous-réseau délégué, pas d'IP publique,
-  zone DNS privée.
-- **network_policy = "azure"** activée au niveau du cluster AKS.
+  > Leur application nécessite un CNI compatible (Azure CNI / Calico). Le MVP
+  > tourne en kubenet (léger) ; activer un CNI policy-enabled est l'évolution
+  > prévue.
+- **PostgreSQL** : accès public restreint au **pare-feu « services Azure »**
+  (aucune connexion depuis l'Internet public) + **TLS obligatoire**
+  (`sslmode=require`).
 
 ## 5. Chiffrement (TLS)
 
@@ -60,20 +66,22 @@ Les rapports SARIF sont publiés dans l'onglet **Security** du dépôt GitHub.
 
 ## 6. Conformité (données de santé)
 
-- Hébergement en **France Central** (RGPD).
-- Architecture compatible **HDS** (Hébergeur de Données de Santé) : Azure
-  dispose de la certification HDS ; les données restent en France, chiffrées
-  au repos (chiffrement de plateforme Azure) et en transit (TLS).
-- **Sauvegardes chiffrées** (PostgreSQL, 7 jours de rétention) — cf. PRA/PCA.
+- Hébergement en **Poland Central** (Union européenne → RGPD).
+- Données chiffrées **au repos** (chiffrement de plateforme Azure) et **en
+  transit** (TLS, `sslmode=require`).
+- **Sauvegardes** automatiques (PostgreSQL, 7 jours de rétention) — cf. PRA/PCA.
 - **Journalisation** centralisée (Loki) pour la traçabilité des accès.
+- *Note HDS* : pour un véritable hébergement de données de santé en production,
+  basculer sur une région française et activer les services certifiés HDS
+  d'Azure (identifié comme évolution).
 
 ## 7. Modèle de menaces (synthèse)
 
 | Menace | Mitigation |
 |---|---|
-| Vol d'identifiants CI | OIDC sans secret stocké |
+| Vol d'identifiants CI | Secrets chiffrés GitHub, masquage des logs (évolution : OIDC) |
 | Image vulnérable déployée | Scan Trivy bloquant (CRITICAL) avant déploiement |
-| Exposition de la base | Réseau privé, pas d'IP publique |
-| Mouvement latéral dans le cluster | Network policies default-deny + RBAC |
-| Fuite de secret dans Git | Gitleaks + Key Vault |
+| Exposition de la base | Pare-feu « services Azure » + TLS obligatoire |
+| Mouvement latéral dans le cluster | RBAC + NetworkPolicies (activables avec CNI compatible) |
+| Fuite de secret dans Git | Gitleaks + secret DB jamais versionné |
 | Élévation de privilèges conteneur | securityContext durci, non-root |

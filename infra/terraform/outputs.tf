@@ -6,25 +6,22 @@ output "aks_name" {
   value = azurerm_kubernetes_cluster.main.name
 }
 
-output "acr_login_server" {
-  value = azurerm_container_registry.main.login_server
+output "acr_name" {
+  value = azurerm_container_registry.main.name
 }
 
-output "key_vault_name" {
-  value = azurerm_key_vault.main.name
+output "acr_login_server" {
+  value = azurerm_container_registry.main.login_server
 }
 
 output "postgres_fqdn" {
   value = azurerm_postgresql_flexible_server.main.fqdn
 }
 
-# Commande prête à l'emploi pour configurer kubectl.
-output "aks_get_credentials_cmd" {
-  value = "az aks get-credentials --resource-group ${azurerm_resource_group.main.name} --name ${azurerm_kubernetes_cluster.main.name}"
-}
-
-output "database_url_secret_uri" {
-  description = "URI du secret Key Vault contenant la chaîne de connexion"
-  value       = azurerm_key_vault_secret.database_url.versionless_id
-  sensitive   = true
+# Chaîne de connexion complète consommée par l'application. Sensible :
+# récupérée par la CI via `terraform output -raw` puis injectée dans un
+# Secret Kubernetes par Helm.
+output "database_url" {
+  value     = "postgresql+psycopg://${var.postgres_admin_login}:${random_password.postgres.result}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/${azurerm_postgresql_flexible_server_database.app.name}?sslmode=require"
+  sensitive = true
 }

@@ -1,0 +1,192 @@
+name: Deploy (Azure tout-en-un)
+
+# Pipeline 100% automatisé : se connecte à Azure, provisionne l'infrastructure
+# (Terraform), construit et pousse les images, puis déploie l'application sur
+# AKS (Helm). Aucune étape manuelle.
+#
+# Déclenchement :
+#   - push sur main  -> provisionne + déploie
+#   - manuel (Actions -> Run workflow) -> choix de l'action : deploy / destroy
+#
+# Secrets GitHub requis (Settings -> Secrets and variables -> Actions) :
+#   AZURE_USERNAME, AZURE_PASSWORD, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action à exécuter"
+        type: choice
+        options: [deploy, destroy]
+        default: deploy
+
+concurrency:
+  group: azure-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TF_ROOT: infra/terraform
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  # Nommage du Storage Account de l'état Terraform (créé automatiquement).
+  TFSTATE_RG: rg-tfstate-audioprothese
+  TFSTATE_CONTAINER: tfstate
+  TFSTATE_KEY: mvp.tfstate
+  LOCATION: polandcentral
+
+jobs:
+  pipeline:
+    name: Provision & déploiement
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Azure CLI
+        run: |
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+      - name: Connexion Azure (utilisateur / mot de passe)
+        run: |
+          az login -u "${{ secrets.AZURE_USERNAME }}" -p "${{ secrets.AZURE_PASSWORD }}" \
+            --tenant "${{ secrets.AZURE_TENANT_ID }}"
+          az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+
+      - name: Préparer le backend d'état Terraform (idempotent)
+        id: tfstate
+        run: |
+          set -euo pipefail
+          SA="sttf$(echo -n "${{ secrets.AZURE_SUBSCRIPTION_ID }}" | md5sum | cut -c1-12)"
+          echo "Storage account d'état : $SA"
+          az group create -n "$TFSTATE_RG" -l "$LOCATION" -o none
+          az storage account create -n "$SA" -g "$TFSTATE_RG" -l "$LOCATION" \
+            --sku Standard_LRS --encryption-services blob -o none
+          KEY=$(az storage account keys list -g "$TFSTATE_RG" -n "$SA" --query '[0].value' -o tsv)
+          az storage container create -n "$TFSTATE_CONTAINER" --account-name "$SA" \
+            --account-key "$KEY" -o none
+          echo "sa=$SA" >> "$GITHUB_OUTPUT"
+          echo "ARM_ACCESS_KEY=$KEY" >> "$GITHUB_ENV"
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.3"
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_ROOT }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=$TFSTATE_RG" \
+            -backend-config="storage_account_name=${{ steps.tfstate.outputs.sa }}" \
+            -backend-config="container_name=$TFSTATE_CONTAINER" \
+            -backend-config="key=$TFSTATE_KEY"
+
+      # --- Destruction (FinOps) ---
+      - name: Terraform destroy
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+        working-directory: ${{ env.TF_ROOT }}
+        run: |
+          terraform destroy -auto-approve \
+            -var 'budget_alert_emails=["${{ secrets.BUDGET_EMAIL }}"]'
+
+      - name: Fin (destroy)
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+        run: echo "Infrastructure détruite. Facturation stoppée." && exit 0
+
+      # --- Provisionnement ---
+      - name: Terraform apply
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        working-directory: ${{ env.TF_ROOT }}
+        run: |
+          terraform apply -auto-approve \
+            -var 'budget_alert_emails=["${{ secrets.BUDGET_EMAIL }}"]'
+
+      - name: Récupérer les sorties Terraform
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        id: tf
+        working-directory: ${{ env.TF_ROOT }}
+        run: |
+          echo "rg=$(terraform output -raw resource_group)" >> "$GITHUB_OUTPUT"
+          echo "aks=$(terraform output -raw aks_name)" >> "$GITHUB_OUTPUT"
+          echo "acr_name=$(terraform output -raw acr_name)" >> "$GITHUB_OUTPUT"
+          echo "acr_server=$(terraform output -raw acr_login_server)" >> "$GITHUB_OUTPUT"
+          # La chaîne de connexion (sensible) est masquée dans les logs.
+          DBURL=$(terraform output -raw database_url)
+          echo "::add-mask::$DBURL"
+          echo "DBURL=$DBURL" >> "$GITHUB_ENV"
+
+      - name: Build & push des images vers ACR
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          az acr login --name "${{ steps.tf.outputs.acr_name }}"
+          SERVER="${{ steps.tf.outputs.acr_server }}"
+          TAG="${GITHUB_SHA::12}"
+          docker build -t "$SERVER/audioprothese-backend:$TAG" app/backend
+          docker build -t "$SERVER/audioprothese-frontend:$TAG" app/frontend
+          docker push "$SERVER/audioprothese-backend:$TAG"
+          docker push "$SERVER/audioprothese-frontend:$TAG"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Scan de l'image backend (Trivy, bloquant si CRITICAL)
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.tf.outputs.acr_server }}/audioprothese-backend:${{ env.TAG }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL
+          ignore-unfixed: true
+
+      - name: Configurer kubectl + Helm
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          az aks install-cli 2>/dev/null || true
+          az aks get-credentials -g "${{ steps.tf.outputs.rg }}" \
+            -n "${{ steps.tf.outputs.aks }}" --overwrite-existing
+          curl -fsSL -o /tmp/helm.tar.gz https://get.helm.sh/helm-v3.16.3-linux-amd64.tar.gz \
+            || curl -fsSL -o /tmp/helm.tar.gz https://get.helm.sh/helm-v3.16.3-linux-amd64.tar.gz
+          tar -xzf /tmp/helm.tar.gz -C /tmp
+          sudo mv /tmp/linux-amd64/helm /usr/local/bin/helm
+          helm version
+
+      - name: Installer l'Ingress NGINX
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          helm repo update
+          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+            -n ingress-nginx --create-namespace \
+            --set controller.replicaCount=1 --wait --timeout 5m
+
+      - name: Déploiement de l'application (Helm)
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          helm upgrade --install audioprothese k8s/helm/audioprothese \
+            --namespace audioprothese --create-namespace \
+            --set image.registry="${{ steps.tf.outputs.acr_server }}" \
+            --set image.tag="$TAG" \
+            --set-string databaseUrl="$DBURL" \
+            --wait --timeout 5m
+
+      - name: Afficher l'URL d'accès
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          echo "Pods :"
+          kubectl get pods -n audioprothese
+          echo "En attente de l'IP publique de l'Ingress..."
+          for i in $(seq 1 30); do
+            IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            [ -n "$IP" ] && break
+            sleep 10
+          done
+          echo "==============================================="
+          echo " Application accessible sur : http://$IP/"
+          echo " API (Swagger)            : http://$IP/api/docs"
+          echo "==============================================="

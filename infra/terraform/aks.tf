@@ -1,5 +1,7 @@
 # Cluster AKS managé. Le plan de contrôle est gratuit ; seul le pool de
-# nœuds est facturé. 1 nœud B2s pour rester dans le budget Student.
+# nœuds est facturé. 1 nœud B2s_v2 pour rester dans le budget Student.
+# Réseau par défaut (kubenet, VNet auto-gérée) : léger et sans configuration
+# manuelle, adapté à un MVP mono-nœud.
 resource "azurerm_kubernetes_cluster" "main" {
   name                = "aks-${local.name}"
   location            = azurerm_resource_group.main.location
@@ -9,11 +11,9 @@ resource "azurerm_kubernetes_cluster" "main" {
   sku_tier = "Free"
 
   default_node_pool {
-    name           = "system"
-    node_count     = var.aks_node_count
-    vm_size        = var.aks_node_size
-    vnet_subnet_id = azurerm_subnet.aks.id
-    # Disque OS éphémère/Managé minimal pour réduire les coûts.
+    name            = "system"
+    node_count      = var.aks_node_count
+    vm_size         = var.aks_node_size
     os_disk_size_gb = 32
   }
 
@@ -24,14 +24,6 @@ resource "azurerm_kubernetes_cluster" "main" {
 
   # RBAC Kubernetes activé (sécurité).
   role_based_access_control_enabled = true
-
-  network_profile {
-    network_plugin = "azure"
-    network_policy = "azure" # network policies pour le cloisonnement des pods
-  }
-
-  oidc_issuer_enabled       = true
-  workload_identity_enabled = true
 
   tags = var.tags
 }

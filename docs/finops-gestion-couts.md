@@ -7,19 +7,19 @@
 
 ## 1. Estimation des coûts mensuels
 
-Région France Central, dimensionnement MVP. Tarifs indicatifs (USD, 2025).
+Région Poland Central, dimensionnement MVP. Tarifs indicatifs (USD, 2025).
 
 | Ressource | SKU | Coût si allumé 24/7 | Levier |
 |---|---|---|---|
 | AKS — plan de contrôle | Free tier | **0 $** | Toujours gratuit |
-| AKS — 1 nœud | Standard_B2s (2 vCPU / 4 Go) | ~30 $/mois | Burstable, éteignable |
+| AKS — 1 nœud | Standard_B2s_v2 (2 vCPU / 8 Go) | ~30-35 $/mois | Burstable, éteignable |
 | PostgreSQL Flexible | B_Standard_B1ms | ~13 $/mois | Burstable, le moins cher |
 | Stockage PostgreSQL | 32 Go | ~4 $/mois | Minimum |
 | Azure Container Registry | Basic | ~5 $/mois | SKU le plus bas |
-| Azure Key Vault | Standard | ~0–1 $ | Facturation à l'opération |
+| Storage Account (état Terraform) | Standard_LRS | ~0–1 $ | Négligeable |
 | Load Balancer (Ingress) | Standard | ~3–4 $/mois | Mutualisé |
 | Adresse IP publique | Standard | ~3 $/mois | 1 seule |
-| **Total estimé 24/7** | | **~60 $/mois** | |
+| **Total estimé 24/7** | | **~60-65 $/mois** | |
 
 Avec extinction hors démonstration (voir §2), le coût réel tombe à
 **quelques dollars par mois**, laissant largement de la marge sur les 85 $.
@@ -28,7 +28,7 @@ Avec extinction hors démonstration (voir §2), le coût réel tombe à
 
 1. **Plan de contrôle AKS gratuit** (`sku_tier = "Free"`) — pas de SLA payant.
 2. **Un seul nœud B2s burstable** — facturation réduite, suffisant pour un MVP.
-3. **SKU minimaux partout** : PostgreSQL B1ms, ACR Basic, Key Vault Standard.
+3. **SKU minimaux partout** : PostgreSQL B1ms, ACR Basic, Storage LRS.
 4. **Loki au lieu d'ELK** : Elasticsearch nécessiterait plusieurs Go de RAM et
    du stockage indexé coûteux ; Loki n'indexe que les labels (économie majeure).
 5. **Rétention courte** : métriques Prometheus 3 jours, logs Loki 72 h,

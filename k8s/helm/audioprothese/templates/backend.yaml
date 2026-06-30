@@ -37,7 +37,9 @@ spec:
                   name: {{ .Values.backend.databaseUrlSecretName }}
                   key: {{ .Values.backend.databaseUrlSecretKey }}
             - name: CORS_ORIGINS
-              value: "https://{{ .Values.ingress.host }}"
+              # Le frontend est servi derrière le même Ingress ; "*" suffit
+              # pour le MVP (à restreindre à l'hôte réel en production).
+              value: "*"
           readinessProbe:
             httpGet:
               path: /readyz
