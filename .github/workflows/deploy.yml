@@ -175,6 +175,15 @@ jobs:
           helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
             -n ingress-nginx --create-namespace \
             --set controller.replicaCount=1 --wait --timeout 5m
+          # Attend l'IP publique de l'Ingress (réutilisée pour exposer Grafana).
+          for i in $(seq 1 30); do
+            INGRESS_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            [ -n "$INGRESS_IP" ] && break
+            sleep 10
+          done
+          echo "INGRESS_IP=$INGRESS_IP" >> "$GITHUB_ENV"
+          echo "IP Ingress : $INGRESS_IP"
 
       - name: Installer le monitoring (Prometheus, Grafana, Loki, Alertmanager)
         # AVANT l'app : installe les CRDs (dont ServiceMonitor) nécessaires
@@ -209,12 +218,19 @@ jobs:
             echo "Webhook Slack/Teams branché sur Alertmanager."
           fi
 
-          # Prometheus + Grafana (LoadBalancer) + Alertmanager.
+          # Grafana exposé via l'Ingress NGINX (hôte nip.io basé sur l'IP de
+          # l'Ingress) -> aucune IP publique supplémentaire à provisionner.
+          GRAFANA_HOST="grafana.${INGRESS_IP}.nip.io"
+          echo "GRAFANA_HOST=$GRAFANA_HOST" >> "$GITHUB_ENV"
+
+          # Prometheus + Grafana + Alertmanager.
           # Sans --wait : Helm applique les manifests (CRDs incluses) et rend la
           # main tout de suite ; les pods convergent ensuite seuls en arrière-plan.
           helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
             -n monitoring --create-namespace \
             -f monitoring/k8s/kube-prometheus-stack-values.yaml \
+            --set grafana.ingress.hosts[0]="$GRAFANA_HOST" \
+            --set "grafana.grafana\.ini.server.root_url=http://$GRAFANA_HOST" \
             $SLACK_OPT
           # Petite attente que la CRD ServiceMonitor soit bien enregistrée
           # (requise par le chart applicatif déployé juste après).
@@ -296,16 +312,9 @@ jobs:
             sleep 10
           done
           MINIO=$(terraform -chdir=$TF_ROOT output -raw minio_endpoint 2>/dev/null || true)
-          echo "En attente de l'IP publique de Grafana..."
-          for i in $(seq 1 30); do
-            GIP=$(kubectl get svc -n monitoring kube-prometheus-stack-grafana \
-              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-            [ -n "$GIP" ] && break
-            sleep 10
-          done
           echo "==============================================="
           echo " Application accessible sur : http://$IP/"
           echo " API (Swagger)            : http://$IP/api/docs"
           [ -n "$MINIO" ] && echo " MinIO (on-prem)          : $MINIO  (console :9001)"
-          echo " Grafana                  : http://$GIP/  (admin / AudioGrafana2026!)"
+          echo " Grafana                  : http://grafana.$IP.nip.io/  (admin / AudioGrafana2026!)"
           echo "==============================================="

@@ -19,9 +19,13 @@ prometheus:
 grafana:
   adminPassword: "AudioGrafana2026!"  # identifiants démo : admin / AudioGrafana2026!
   defaultDashboardsEnabled: true
-  # Exposition automatique via une IP publique (aucun port-forward manuel).
+  # Exposé via l'Ingress NGINX existant (réutilise l'IP publique de l'app,
+  # pas de 2e IP publique à provisionner). L'hôte (nip.io) est passé par la CI.
   service:
-    type: LoadBalancer
+    type: ClusterIP
+  ingress:
+    enabled: true
+    ingressClassName: nginx
   resources:
     requests: { cpu: 50m, memory: 128Mi }
     limits:   { cpu: 200m, memory: 256Mi }
