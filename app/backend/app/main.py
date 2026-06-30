@@ -31,6 +31,11 @@ app = FastAPI(
     version="0.1.0",
     description="API de gestion d'un cabinet d'audioprothèse (patients, appareils, rendez-vous).",
     lifespan=lifespan,
+    # Doc exposée sous /api/* car l'Ingress ne route que /api et /metrics
+    # vers le backend (le reste va au frontend).
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
 )
 
 app.add_middleware(
@@ -57,6 +62,6 @@ def root() -> dict[str, str]:
     return {
         "service": settings.app_name,
         "version": "0.1.0",
-        "docs": "/docs",
+        "docs": "/api/docs",
         "metrics": "/metrics",
     }

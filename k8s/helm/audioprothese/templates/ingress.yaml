@@ -44,6 +44,20 @@ spec:
                 name: backend
                 port:
                   number: 8000
+          - path: /healthz
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /readyz
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
           # Tout le reste va au frontend (SPA).
           - path: /
             pathType: Prefix
