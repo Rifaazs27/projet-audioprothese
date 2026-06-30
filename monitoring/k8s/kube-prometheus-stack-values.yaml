@@ -1,0 +1,43 @@
+# Valeurs Helm pour kube-prometheus-stack (Prometheus + Grafana + Alertmanager)
+# dimensionnées pour un cluster MVP mono-nœud (FinOps).
+#
+# Installation :
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace \
+#     -f monitoring/k8s/kube-prometheus-stack-values.yaml
+
+prometheus:
+  prometheusSpec:
+    retention: 3d                # rétention courte pour limiter le stockage
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 500m, memory: 512Mi }
+    # Découvre automatiquement tous les ServiceMonitor du cluster.
+    serviceMonitorSelectorNilUsesHelmValues: false
+
+grafana:
+  adminPassword: "changeme-en-demo"   # à surcharger via --set en production
+  defaultDashboardsEnabled: true
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 200m, memory: 256Mi }
+  # Datasource Loki ajoutée en complément des dashboards par défaut.
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.monitoring.svc.cluster.local
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 25m, memory: 64Mi }
+      limits:   { cpu: 100m, memory: 128Mi }
+
+# Allègements pour un cluster mono-nœud Student.
+nodeExporter:
+  enabled: true
+kubeStateMetrics:
+  enabled: true
+defaultRules:
+  create: true

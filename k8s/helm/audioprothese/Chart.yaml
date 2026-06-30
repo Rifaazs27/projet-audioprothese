@@ -1,0 +1,8 @@
+apiVersion: v2
+name: audioprothese
+description: Application de gestion d'un cabinet d'audioprothèse (MVP DevOps)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: Equipe Projet Etude M2 DevOps

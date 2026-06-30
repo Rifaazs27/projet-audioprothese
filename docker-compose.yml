@@ -1,0 +1,88 @@
+# Stack de développement local complète :
+#   - PostgreSQL (données)
+#   - backend FastAPI + frontend React
+#   - supervision : Prometheus, Grafana, Loki, Promtail
+#
+# Démarrage :  docker compose up --build
+#   API      → http://localhost:8000/docs
+#   Frontend → http://localhost:8080
+#   Grafana  → http://localhost:3000  (admin / admin)
+#   Prometheus → http://localhost:9090
+name: audioprothese
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: audio
+      POSTGRES_PASSWORD: audio
+      POSTGRES_DB: audioprothese
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U audio -d audioprothese"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./app/backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://audio:audio@db:5432/audioprothese
+      CORS_ORIGINS: http://localhost:8080,http://localhost:5173
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./app/frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - "9090:9090"
+
+  loki:
+    image: grafana/loki:3.2.0
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+
+  promtail:
+    image: grafana/promtail:3.2.0
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - loki
+
+volumes:
+  pgdata:

@@ -1,0 +1,22 @@
+# RBAC : compte de service dédié à l'application, avec des droits minimaux
+# (principe du moindre privilège). Le backend n'a besoin d'aucun accès à
+# l'API Kubernetes ; on lui interdit donc le montage automatique du token.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: audioprothese
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "audioprothese.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+---
+# Rôle de lecture seule pour l'équipe (consultation des pods/logs en démo).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: viewer
+  namespace: {{ .Values.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "events"]
+    verbs: ["get", "list", "watch"]
