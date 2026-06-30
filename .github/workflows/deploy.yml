@@ -87,6 +87,18 @@ jobs:
             -backend-config="container_name=$TFSTATE_CONTAINER" \
             -backend-config="key=$TFSTATE_KEY"
 
+      - name: Libérer un verrou d'état résiduel (lease)
+        # Un run précédent interrompu peut laisser le blob d'état verrouillé.
+        # La 'concurrency' garantit qu'aucun autre deploy ne tourne en même
+        # temps : on peut donc casser sans risque un lease orphelin.
+        run: |
+          az storage blob lease break \
+            --container-name "$TFSTATE_CONTAINER" \
+            --blob-name "$TFSTATE_KEY" \
+            --account-name "${{ steps.tfstate.outputs.sa }}" \
+            --account-key "$ARM_ACCESS_KEY" 2>/dev/null \
+            && echo "Verrou résiduel libéré." || echo "Aucun verrou à libérer."
+
       # --- Destruction (FinOps) ---
       - name: Terraform destroy
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
