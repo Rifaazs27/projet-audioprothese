@@ -17,7 +17,7 @@ jobs:
     name: Trivy — dépendances & IaC
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Scan du système de fichiers (vulns + secrets)
         uses: aquasecurity/trivy-action@master
         with:
@@ -41,7 +41,7 @@ jobs:
       matrix:
         language: [python, javascript-typescript]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
@@ -51,7 +51,7 @@ jobs:
     name: Gitleaks — fuite de secrets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
