@@ -213,7 +213,7 @@ jobs:
           chmod 600 onprem_id_rsa
           IP=$(terraform -chdir=../$TF_ROOT output -raw onprem_public_ip)
           USER=$(terraform -chdir=../$TF_ROOT output -raw onprem_admin_user)
-          printf '[onprem]\nonprem ansible_host=%s\n[onprem:vars]\nansible_user=%s\nansible_ssh_private_key_file=./onprem_id_rsa\n' "$IP" "$USER" > inventory.ini
+          printf '[onprem]\nvm ansible_host=%s\n[onprem:vars]\nansible_user=%s\nansible_ssh_private_key_file=./onprem_id_rsa\n' "$IP" "$USER" > inventory.ini
           MINIO_USER=$(terraform -chdir=../$TF_ROOT output -raw minio_root_user)
           MINIO_PASS=$(terraform -chdir=../$TF_ROOT output -raw minio_root_password)
           MINIO_KMS=$(terraform -chdir=../$TF_ROOT output -raw minio_kms_key)

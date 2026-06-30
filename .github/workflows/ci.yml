@@ -98,6 +98,8 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install ansible-core
+      - name: Installer la collection community.docker (utilisée par minio.yml)
+        run: ansible-galaxy collection install community.docker
       - name: Vérifier la syntaxe des playbooks
         working-directory: ansible
         run: |
