@@ -179,6 +179,17 @@ jobs:
       - name: Déploiement de l'application (Helm)
         if: github.event_name == 'push' || inputs.action == 'deploy'
         run: |
+          set -euo pipefail
+          # Auto-réparation : une release laissée en pending-install/failed par
+          # un run interrompu casse l'upgrade. On la désinstalle d'abord.
+          if helm status audioprothese -n audioprothese >/dev/null 2>&1; then
+            ST=$(helm status audioprothese -n audioprothese -o json | jq -r '.info.status')
+            echo "État de la release existante : $ST"
+            if [ "$ST" != "deployed" ]; then
+              echo "Release dans un état non sain -> désinstallation."
+              helm uninstall audioprothese -n audioprothese --wait || true
+            fi
+          fi
           helm upgrade --install audioprothese k8s/helm/audioprothese \
             --namespace audioprothese --create-namespace \
             --set image.registry="${{ steps.tf.outputs.acr_server }}" \
