@@ -195,7 +195,43 @@ jobs:
             --set image.registry="${{ steps.tf.outputs.acr_server }}" \
             --set image.tag="$TAG" \
             --set-string databaseUrl="$DBURL" \
+            --set serviceMonitor.enabled=true \
             --wait --timeout 5m
+
+      - name: Installer le monitoring (Prometheus, Grafana, Loki, Alertmanager)
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          set -euo pipefail
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add grafana https://grafana.github.io/helm-charts
+          helm repo update
+          # Le label de namespace permet aux NetworkPolicies de cibler "monitoring".
+          kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+          kubectl label namespace monitoring kubernetes.io/metadata.name=monitoring --overwrite
+
+          # Branche le webhook Slack/Teams uniquement s'il est défini.
+          SLACK_OPT=""
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            SLACK_OPT="--set-string alertmanager.config.global.slack_api_url=${{ secrets.SLACK_WEBHOOK_URL }}"
+            echo "Webhook Slack/Teams branché sur Alertmanager."
+          fi
+
+          # Prometheus + Grafana (LoadBalancer) + Alertmanager.
+          helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+            -n monitoring --create-namespace \
+            -f monitoring/k8s/kube-prometheus-stack-values.yaml \
+            $SLACK_OPT --wait --timeout 15m
+
+          # Loki + Promtail (logs).
+          helm upgrade --install loki grafana/loki-stack \
+            -n monitoring -f monitoring/k8s/loki-stack-values.yaml \
+            --wait --timeout 10m
+
+          # Import automatique du dashboard applicatif dans Grafana.
+          kubectl create configmap audioprothese-dashboard -n monitoring \
+            --from-file=audioprothese-overview.json=monitoring/grafana/dashboards/audioprothese-overview.json \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl label configmap audioprothese-dashboard -n monitoring grafana_dashboard=1 --overwrite
 
       - name: Configurer MinIO sur la VM on-prem (Ansible)
         if: github.event_name == 'push' || inputs.action == 'deploy'
@@ -240,8 +276,16 @@ jobs:
             sleep 10
           done
           MINIO=$(terraform -chdir=$TF_ROOT output -raw minio_endpoint 2>/dev/null || true)
+          echo "En attente de l'IP publique de Grafana..."
+          for i in $(seq 1 30); do
+            GIP=$(kubectl get svc -n monitoring kube-prometheus-stack-grafana \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            [ -n "$GIP" ] && break
+            sleep 10
+          done
           echo "==============================================="
           echo " Application accessible sur : http://$IP/"
           echo " API (Swagger)            : http://$IP/api/docs"
           [ -n "$MINIO" ] && echo " MinIO (on-prem)          : $MINIO  (console :9001)"
+          echo " Grafana                  : http://$GIP/  (admin / AudioGrafana2026!)"
           echo "==============================================="

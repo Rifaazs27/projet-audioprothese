@@ -18,9 +18,9 @@ variable "location" {
 
 # --- FinOps : dimensionnement volontairement minimal (compte Student 85 $) ---
 variable "aks_node_count" {
-  description = "Nombre de nœuds AKS (1 pour le MVP)"
+  description = "Nombre de nœuds AKS (2 pour héberger app + ingress + stack monitoring)"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "aks_node_size" {

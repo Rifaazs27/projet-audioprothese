@@ -65,21 +65,23 @@ Règles Prometheus (`monitoring/prometheus/alerts.yml`) :
 Microsoft Teams n'ayant pas de récepteur natif, un receiver `webhook_configs`
 vers un relais *prometheus-msteams* est fourni en commentaire.
 
-## 5. Installation sur le cluster
+## 5. Installation sur le cluster — automatique (CI)
 
+Le workflow `deploy.yml` installe **automatiquement** tout le monitoring à
+chaque déploiement : kube-prometheus-stack (Prometheus + Grafana +
+Alertmanager) puis Loki/Promtail, active le ServiceMonitor de l'app et importe
+le dashboard applicatif. **Aucune action manuelle.**
+
+**Accès Grafana** : exposé en `LoadBalancer`, l'IP publique est affichée à la
+fin du job `Deploy` (identifiants démo : `admin` / `AudioGrafana2026!`).
+Les dashboards par défaut (cluster, nœuds, pods) + le dashboard
+« Audioprothèse — Vue d'ensemble » sont disponibles immédiatement.
+
+Pour une installation manuelle (hors CI) :
 ```bash
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo add grafana https://grafana.github.io/helm-charts
 helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   -n monitoring --create-namespace -f monitoring/k8s/kube-prometheus-stack-values.yaml
-helm install loki grafana/loki-stack \
-  -n monitoring -f monitoring/k8s/loki-stack-values.yaml
-```
-
-Accès Grafana :
-
-```bash
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+helm install loki grafana/loki-stack -n monitoring -f monitoring/k8s/loki-stack-values.yaml
 ```
 
 ## 6. Traces (perspective)

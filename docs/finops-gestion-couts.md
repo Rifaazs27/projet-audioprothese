@@ -12,7 +12,8 @@ Région Poland Central, dimensionnement MVP. Tarifs indicatifs (USD, 2025).
 | Ressource | SKU | Coût si allumé 24/7 | Levier |
 |---|---|---|---|
 | AKS — plan de contrôle | Free tier | **0 $** | Toujours gratuit |
-| AKS — 1 nœud | Standard_B2s_v2 (2 vCPU / 8 Go) | ~30-35 $/mois | Burstable, éteignable |
+| AKS — 2 nœuds | Standard_B2s_v2 (2 vCPU / 8 Go) | ~60-70 $/mois | 2 nœuds pour héberger app + ingress + monitoring complet |
+| Grafana (LoadBalancer) | IP publique Standard | ~3 $/mois | Accès direct sans port-forward |
 | PostgreSQL Flexible | B_Standard_B1ms | ~13 $/mois | Burstable, le moins cher |
 | Stockage PostgreSQL | 32 Go | ~4 $/mois | Minimum |
 | Azure Container Registry | Basic | ~5 $/mois | SKU le plus bas |
@@ -23,8 +24,10 @@ Région Poland Central, dimensionnement MVP. Tarifs indicatifs (USD, 2025).
 | Adresse IP publique (app) | Standard | ~3 $/mois | 1 seule |
 | **Total estimé 24/7** | | **~80 $/mois** | |
 
-⚠️ À ~80 $/mois en 24/7, on frôle le crédit de 85 $ : le **teardown après chaque
-démo est indispensable**. Avec extinction hors démonstration (voir §2), le coût
+⚠️ Avec 2 nœuds AKS + la VM on-prem + le monitoring complet, on dépasse ~120 $/mois
+en 24/7 : le **teardown après chaque démo est INDISPENSABLE** (l'infra ne doit
+tourner que pendant les tests et l'enregistrement de la vidéo, soit quelques
+dollars réels). Avec extinction hors démonstration (voir §2), le coût
 réel tombe à **quelques dollars par mois**. On peut aussi désactiver la VM
 on-prem (`enable_onprem=false`) pour économiser ~20 $/mois quand elle n'est pas
 nécessaire.

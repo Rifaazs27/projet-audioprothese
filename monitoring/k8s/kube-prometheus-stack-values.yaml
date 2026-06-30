@@ -17,16 +17,26 @@ prometheus:
     serviceMonitorSelectorNilUsesHelmValues: false
 
 grafana:
-  adminPassword: "changeme-en-demo"   # à surcharger via --set en production
+  adminPassword: "AudioGrafana2026!"  # identifiants démo : admin / AudioGrafana2026!
   defaultDashboardsEnabled: true
+  # Exposition automatique via une IP publique (aucun port-forward manuel).
+  service:
+    type: LoadBalancer
   resources:
     requests: { cpu: 50m, memory: 128Mi }
     limits:   { cpu: 200m, memory: 256Mi }
-  # Datasource Loki ajoutée en complément des dashboards par défaut.
+  # Datasource Loki (service "loki" du chart loki-stack, port 3100).
   additionalDataSources:
     - name: Loki
       type: loki
-      url: http://loki-gateway.monitoring.svc.cluster.local
+      uid: loki
+      url: http://loki.monitoring.svc.cluster.local:3100
+  # Importe automatiquement les ConfigMaps de dashboards (label grafana_dashboard).
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
 
 alertmanager:
   alertmanagerSpec:

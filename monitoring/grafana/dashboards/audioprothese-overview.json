@@ -10,7 +10,7 @@
     {
       "type": "timeseries",
       "title": "Débit de requêtes (req/s)",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "targets": [
         {
@@ -22,7 +22,7 @@
     {
       "type": "timeseries",
       "title": "Latence p95 (s)",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "targets": [
         {
@@ -34,7 +34,7 @@
     {
       "type": "stat",
       "title": "Taux d'erreurs 5xx",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
       "fieldConfig": { "defaults": { "unit": "percentunit" } },
       "targets": [
@@ -46,14 +46,14 @@
     {
       "type": "stat",
       "title": "Disponibilité backend",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
       "targets": [{ "expr": "up{job=\"audioprothese-backend\"}" }]
     },
     {
       "type": "logs",
       "title": "Logs applicatifs (Loki)",
-      "datasource": { "type": "loki", "uid": "Loki" },
+      "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
       "targets": [{ "expr": "{job=\"docker\"}" }]
     }
