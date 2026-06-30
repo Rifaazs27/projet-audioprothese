@@ -197,15 +197,20 @@ jobs:
           fi
 
           # Prometheus + Grafana (LoadBalancer) + Alertmanager.
+          # Sans --wait : Helm applique les manifests (CRDs incluses) et rend la
+          # main tout de suite ; les pods convergent ensuite seuls en arrière-plan.
           helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
             -n monitoring --create-namespace \
             -f monitoring/k8s/kube-prometheus-stack-values.yaml \
-            $SLACK_OPT --wait --timeout 15m
+            $SLACK_OPT
+          # Petite attente que la CRD ServiceMonitor soit bien enregistrée
+          # (requise par le chart applicatif déployé juste après).
+          kubectl wait --for=condition=Established --timeout=120s \
+            crd/servicemonitors.monitoring.coreos.com
 
           # Loki + Promtail (logs).
           helm upgrade --install loki grafana/loki-stack \
-            -n monitoring -f monitoring/k8s/loki-stack-values.yaml \
-            --wait --timeout 10m
+            -n monitoring -f monitoring/k8s/loki-stack-values.yaml
 
           # Import automatique du dashboard applicatif dans Grafana.
           kubectl create configmap audioprothese-dashboard -n monitoring \
