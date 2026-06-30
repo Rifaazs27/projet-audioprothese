@@ -11,10 +11,12 @@
     backup_name: "audioprothese-{{ ansible_date_time.iso8601_basic_short }}.sql.gz"
   tasks:
     - name: Dump de la base via conteneur postgres:16
+      # --clean --if-exists : le dump inclut les DROP, ce qui rend la
+      # restauration idempotente (rejouable sur une base déjà peuplée).
       ansible.builtin.shell: |
         set -o pipefail
         docker run --rm postgres:16-alpine \
-          pg_dump "{{ database_dsn }}" | gzip > /tmp/{{ backup_name }}
+          pg_dump --clean --if-exists "{{ database_dsn }}" | gzip > /tmp/{{ backup_name }}
       args:
         executable: /bin/bash
       changed_when: true
