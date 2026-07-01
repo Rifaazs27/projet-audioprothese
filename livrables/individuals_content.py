@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Contenu détaillé des rendus individuels (~10 pages chacun)."""
+"""Contenu détaillé des rendus individuels — Zaafir & Elyess (~10-13 pages)."""
 from content_docs import individual, CODE  # noqa
 from generate_docs import flow_vertical, flow_horizontal, Spacer, BLUE  # noqa
 
@@ -28,7 +28,13 @@ individual(
     ("P", "Ce positionnement me plaçait à la charnière entre le développement et l'exploitation, ce qui "
      "correspond exactement à l'esprit DevOps : je devais comprendre les besoins fonctionnels du cabinet pour "
      "concevoir l'application, tout en anticipant les contraintes d'hébergement, de sécurité et de coût qui "
-     "conditionnent sa mise en production. Cette double casquette a nourri l'ensemble de mes choix techniques."),
+     "conditionnent sa mise en production. Cette double casquette a nourri l'ensemble de mes choix "
+     "techniques, du modèle de données jusqu'à la façon d'injecter les secrets dans les conteneurs."),
+    ("P", "Concrètement, mon travail conditionnait celui des autres membres : sans infrastructure "
+     "provisionnée et sans application conteneurisée, ni la chaîne d'intégration, ni la supervision, ni le "
+     "plan de reprise n'avaient d'objet. J'ai donc veillé, dès le début du projet en janvier, à livrer "
+     "rapidement une première version fonctionnelle, quitte à l'affiner ensuite, afin que chacun puisse "
+     "avancer sur son périmètre en s'appuyant sur une base concrète."),
 
     ("H1", "2. Ma contribution détaillée"),
     ("H2", "2.1 Conception de l'infrastructure Terraform"),
@@ -42,11 +48,14 @@ individual(
      "chaîne d'intégration de rejouer le déploiement en toute confiance, et qui garantit qu'un membre de "
      "l'équipe obtiendra exactement la même infrastructure qu'un autre. J'ai également veillé à ce que les "
      "dépendances entre ressources soient correctement exprimées, afin que Terraform les crée dans le bon "
-     "ordre (par exemple, le registre et le rôle d'accès avant le cluster qui doit tirer les images)."),
-    ("P", "La gestion de l'état Terraform a fait l'objet d'une attention spécifique : plutôt qu'un état local "
-     "fragile, nous avons opté pour un état distant stocké dans un compte de stockage Azure, ce qui permet le "
-     "travail à plusieurs et évite les conflits. J'ai conçu la configuration de sorte que ce stockage soit "
-     "créé automatiquement s'il n'existe pas, supprimant toute étape préalable manuelle."),
+     "ordre : par exemple, le registre d'images et le rôle d'accès associé doivent exister avant le cluster "
+     "qui devra tirer les images."),
+    ("P", "La gestion de l'état Terraform a fait l'objet d'une attention spécifique. Plutôt qu'un état local, "
+     "fragile et non partageable, nous avons opté pour un état distant stocké dans un compte de stockage "
+     "Azure, ce qui permet le travail à plusieurs et évite les conflits d'écriture. J'ai conçu la "
+     "configuration de sorte que ce compte de stockage soit créé automatiquement s'il n'existe pas, "
+     "supprimant ainsi toute étape préalable manuelle et rendant le premier déploiement aussi simple que les "
+     "suivants."),
     ("FLOW", Spacer(1, 4)),
     ("FLOW", flow_vertical(["terraform apply", "Groupe de ressources Azure",
                             "AKS · ACR · PostgreSQL Flexible",
@@ -57,98 +66,133 @@ individual(
      "ressources métier du cabinet : les patients, les appareils auditifs qui leur sont associés et les "
      "rendez-vous de suivi. J'ai structuré le code en couches claires — modèles de données, schémas de "
      "validation, logique d'accès aux données et routes HTTP — afin qu'il reste lisible et maintenable. La "
-     "validation des entrées est confiée à Pydantic, ce qui garantit qu'aucune donnée mal formée n'atteint la "
-     "base."),
+     "validation des entrées est confiée à Pydantic, ce qui garantit qu'aucune donnée mal formée n'atteint "
+     "la base et que les erreurs sont renvoyées au client de façon explicite."),
     ("P", "J'ai doté l'API de <b>sondes de santé</b> distinctes : une sonde de vivacité qui confirme que le "
-     "service répond, et une sonde de disponibilité qui vérifie en outre que la base de données est joignable. "
-     "Cette distinction est essentielle pour Kubernetes, qui s'appuie sur ces sondes pour décider de "
-     "redémarrer un conteneur ou de lui envoyer du trafic. J'ai également exposé un point de terminaison de "
-     "métriques, consommé par la supervision mise en place par un autre membre de l'équipe."),
+     "service répond, et une sonde de disponibilité qui vérifie en outre que la base de données est "
+     "joignable. Cette distinction est essentielle pour Kubernetes, qui s'appuie sur ces sondes pour décider "
+     "de redémarrer un conteneur ou de lui envoyer du trafic. J'ai également exposé un point de terminaison "
+     "de métriques, consommé par la supervision mise en place par Adame, ce qui illustre l'interdépendance de "
+     "nos périmètres."),
     ("P", "Côté interface, j'ai réalisé un frontend React servi par un serveur nginx, permettant au cabinet "
-     "de consulter et de gérer ses patients de façon simple. L'interface consomme l'API via un chemin unique, "
-     "ce qui simplifie le routage en production où frontend et backend sont exposés derrière le même point "
-     "d'entrée."),
+     "de consulter, créer et supprimer des patients de façon simple et immédiate. L'interface consomme l'API "
+     "via un chemin unique, ce qui simplifie considérablement le routage en production, où le frontend et le "
+     "backend sont exposés derrière le même point d'entrée. J'ai porté attention à ce que l'expérience reste "
+     "fluide même en cas d'erreur réseau, en affichant des messages compréhensibles à l'utilisateur."),
 
     ("H2", "2.3 Conteneurisation et déploiement"),
     ("P", "J'ai conteneurisé les deux composants au moyen d'images Docker construites en plusieurs étapes "
      "(multi-stage), afin de séparer la phase de compilation de l'image finale et d'obtenir des images "
-     "légères. Ces images s'exécutent avec un utilisateur non privilégié, conformément aux bonnes pratiques "
-     "de sécurité, un point sur lequel j'ai collaboré avec le responsable sécurité de l'équipe."),
-    ("P", "Le déploiement sur le cluster s'appuie sur le chart Helm conçu avec le responsable Kubernetes : "
-     "j'ai veillé à ce que l'application reçoive sa configuration (notamment la chaîne de connexion à la base) "
-     "par l'intermédiaire d'un secret Kubernetes injecté au moment du déploiement, et jamais écrit en clair "
-     "dans le dépôt. J'ai enfin coordonné l'enchaînement complet du déploiement de bout en bout et vérifié, "
-     "après chaque livraison, le bon fonctionnement de l'application, de la base et de l'interface."),
+     "légères, plus rapides à distribuer et à démarrer. Ces images s'exécutent avec un utilisateur non "
+     "privilégié, conformément aux bonnes pratiques de sécurité, un point sur lequel j'ai collaboré "
+     "étroitement avec le responsable sécurité de l'équipe."),
+    ("P", "Le déploiement sur le cluster s'appuie sur le chart Helm conçu avec Anis : j'ai veillé à ce que "
+     "l'application reçoive sa configuration — notamment la chaîne de connexion à la base — par "
+     "l'intermédiaire d'un secret Kubernetes injecté au moment du déploiement, et jamais écrit en clair dans "
+     "le dépôt. J'ai enfin coordonné l'enchaînement complet du déploiement de bout en bout et vérifié, après "
+     "chaque livraison, le bon fonctionnement de l'application, de la base et de l'interface. Le flux de "
+     "traitement d'une requête utilisateur suit le chemin suivant :"),
     ("FLOW", Spacer(1, 4)),
     ("FLOW", flow_horizontal([["Utilisateur"], ["Ingress", "NGINX"],
                               ["Frontend /", "Backend"], ["PostgreSQL", "(TLS)"]], color=BLUE)),
 
     ("H1", "3. Choix techniques et justifications"),
     ("P", "Le choix de FastAPI s'explique par sa rapidité de mise en œuvre, sa documentation automatique de "
-     "l'API et sa robustesse grâce à la validation typée, autant d'atouts pour un projet à durée contrainte. "
-     "PostgreSQL s'est imposé comme base relationnelle éprouvée, disponible en version managée sur Azure, ce "
-     "qui nous décharge de son exploitation (sauvegardes, correctifs) tout en restant peu coûteux au palier "
-     "le plus bas."),
+     "l'API et sa robustesse grâce à la validation typée, autant d'atouts précieux pour un projet à durée "
+     "contrainte. Sa nature asynchrone lui confère par ailleurs de bonnes performances, ce qui est appréciable "
+     "sur des machines volontairement modestes pour des raisons budgétaires."),
+    ("P", "PostgreSQL s'est imposé comme base relationnelle éprouvée, disponible en version entièrement "
+     "managée sur Azure, ce qui nous décharge de son exploitation courante — sauvegardes automatiques, "
+     "application des correctifs, supervision — tout en restant peu coûteux au palier le plus bas. Le modèle "
+     "de données du cabinet, structuré autour de relations claires entre patients, appareils et rendez-vous, "
+     "se prête naturellement à une base relationnelle plutôt qu'à une base documentaire."),
     ("P", "Concernant l'hébergement de la base, nous avons retenu un accès public restreint par un pare-feu "
      "n'autorisant que les ressources internes à Azure, avec chiffrement TLS obligatoire. C'est un compromis "
-     "assumé : un réseau entièrement privé aurait été plus sûr, mais aurait ajouté une complexité (réseau "
-     "virtuel dédié, résolution DNS privée) difficilement justifiable pour un MVP au budget serré. J'ai "
-     "documenté ce compromis pour qu'il soit clairement identifié comme un axe d'amélioration."),
+     "assumé : un réseau entièrement privé aurait été plus sûr, mais aurait ajouté une complexité — réseau "
+     "virtuel dédié, résolution DNS privée, points de terminaison privés — difficilement justifiable pour un "
+     "MVP au budget serré. J'ai documenté ce compromis afin qu'il soit clairement identifié comme un axe "
+     "d'amélioration prioritaire pour une éventuelle mise en production réelle."),
+    ("P", "Enfin, le choix d'images Docker multi-stage et non privilégiées relève à la fois de la sécurité et "
+     "de la sobriété : des images plus petites consomment moins de stockage dans le registre, se transfèrent "
+     "plus vite et réduisent la surface d'attaque, autant de bénéfices alignés avec les objectifs "
+     "transversaux du projet."),
 
     ("H1", "4. Difficultés rencontrées et solutions apportées"),
     ("P", "La principale difficulté a été d'<b>industrialiser le provisionnement</b> pour qu'il soit "
      "réellement rejouable par la chaîne d'intégration. Les premières exécutions ont révélé des situations "
-     "délicates : un déploiement interrompu laissait l'état Terraform verrouillé, empêchant toute reprise. "
-     "En collaboration avec le responsable CI/CD, nous avons ajouté un mécanisme libérant automatiquement ce "
-     "verrou résiduel avant chaque application, rendant la chaîne robuste."),
-    ("P", "Une seconde difficulté a concerné la cohérence entre la version de l'application déployée et la "
-     "configuration attendue : j'ai résolu ce point en faisant en sorte que chaque déploiement utilise une "
+     "délicates : un déploiement interrompu laissait l'état Terraform verrouillé, empêchant toute reprise "
+     "ultérieure. En collaboration avec Elyess, responsable de la chaîne, nous avons ajouté un mécanisme "
+     "libérant automatiquement ce verrou résiduel avant chaque application, ce qui a rendu la chaîne robuste "
+     "face aux interruptions."),
+    ("P", "Une deuxième difficulté a concerné la cohérence entre la version de l'application déployée et la "
+     "configuration attendue. J'ai résolu ce point en faisant en sorte que chaque déploiement utilise une "
      "étiquette d'image unique, ce qui force le remplacement propre des conteneurs et garantit que la "
-     "nouvelle configuration est bien prise en compte. Enfin, un souci subtil de compatibilité entre le "
-     "format du mot de passe de la base et l'outil de sauvegarde m'a conduit à générer un mot de passe "
-     "strictement alphanumérique, éliminant toute une classe d'erreurs d'interprétation d'URL."),
+     "nouvelle configuration — y compris les secrets — est bien prise en compte, sans réutilisation "
+     "silencieuse d'une ancienne image mise en cache."),
+    ("P", "Un troisième problème, plus subtil, est apparu au moment de la sauvegarde de la base : un "
+     "caractère spécial présent dans le mot de passe généré cassait l'interprétation de l'URL de connexion "
+     "par l'outil de sauvegarde. Après diagnostic, j'ai imposé la génération d'un mot de passe strictement "
+     "alphanumérique — l'entropie restant largement suffisante sur vingt-quatre caractères — ce qui a éliminé "
+     "toute une classe d'erreurs d'interprétation, aussi bien pour l'application que pour les outils annexes."),
+    ("P", "Chacune de ces difficultés m'a appris qu'une infrastructure fiable ne se conçoit pas d'un seul "
+     "jet : elle se durcit par itérations, au contact des cas réels, en traitant chaque incident à sa racine "
+     "plutôt qu'en le contournant ponctuellement."),
 
     ("H1", "5. Perspectives d'évolution"),
     ("P", "À court terme, je remplacerais l'authentification de la chaîne d'intégration par une fédération "
-     "d'identité OIDC entre GitHub et Azure. Ce mécanisme supprime tout mot de passe stocké au profit de "
-     "jetons éphémères, ce qui constitue l'état de l'art et lèverait la contrainte actuelle d'un compte sans "
-     "double authentification."),
-    ("P", "Je ferais également évoluer la base vers un accès strictement privé, sans exposition publique, en "
-     "plaçant l'application et la base dans un réseau virtuel commun avec des points de terminaison privés. "
-     "Cette évolution renforcerait significativement l'isolation des données de santé, conformément aux "
-     "attentes d'un véritable contexte de production."),
-    ("P", "À plus long terme, si le périmètre fonctionnel s'élargissait (facturation, tiers payant, "
-     "notifications), l'API monolithique pourrait être découpée en services plus fins et indépendamment "
-     "déployables. J'introduirais aussi un outil de migrations de schéma versionnées, mieux adapté qu'une "
-     "création au démarrage pour faire évoluer la base sans risque en production."),
+     "d'identité OIDC entre GitHub et Azure. Ce mécanisme substitue aux identifiants stockés des jetons "
+     "éphémères délivrés à la demande, ce qui constitue l'état de l'art en matière de sécurité et lèverait "
+     "l'actuelle contrainte d'un compte sans double authentification."),
+    ("P", "Je ferais également évoluer la base vers un accès strictement privé, sans aucune exposition "
+     "publique, en plaçant l'application et la base dans un réseau virtuel commun relié par des points de "
+     "terminaison privés. Cette évolution renforcerait significativement l'isolation des données de santé et "
+     "rapprocherait l'architecture des exigences d'un véritable contexte de production soumis au RGPD."),
+    ("P", "À moyen terme, j'introduirais un outil de migrations de schéma versionnées, qui remplacerait "
+     "avantageusement la création automatique du schéma au démarrage : toute évolution de la structure de la "
+     "base serait alors tracée, revue et réversible, ce qui est indispensable dès lors que des données réelles "
+     "sont en jeu."),
+    ("P", "Enfin, si le périmètre fonctionnel s'élargissait — module de facturation, gestion du tiers payant, "
+     "notifications aux patients — l'API monolithique pourrait être découpée en services plus fins, "
+     "déployables et supervisables indépendamment, au prix d'une complexité accrue qu'il faudrait mettre en "
+     "balance avec les bénéfices attendus."),
 
     ("H1", "6. Analyse critique des limites"),
-    ("P", "La limite la plus notable de mon périmètre tient au compromis réseau évoqué plus haut : l'accès "
-     "public restreint reste moins satisfaisant qu'une isolation complète. De même, la création du schéma au "
-     "démarrage de l'application est pratique pour un MVP mais inadaptée à une exploitation durable, où toute "
-     "modification de structure doit être maîtrisée et réversible."),
-    ("P", "Sur le plan des performances, le choix de machines burstable plafonne la capacité sous une charge "
-     "soutenue et prolongée ; ce dimensionnement, pertinent pour une démonstration, devrait être réévalué "
-     "pour un usage réel du cabinet. Enfin, la couverture de tests automatisés de l'application, bien que "
-     "présente, gagnerait à être étendue aux scénarios d'erreur et aux cas limites."),
+    ("P", "La limite la plus notable de mon périmètre tient au compromis réseau déjà évoqué : l'accès public "
+     "restreint de la base, bien que sécurisé par un pare-feu et par TLS, reste moins satisfaisant qu'une "
+     "isolation réseau complète, et ne conviendrait pas en l'état à un hébergement de données de santé "
+     "réglementé."),
+    ("P", "La création du schéma au démarrage de l'application constitue une seconde limite : pratique pour "
+     "un MVP, elle devient risquée en exploitation, où toute modification de structure doit être maîtrisée. "
+     "De même, le dimensionnement en machines « burstable » plafonne la capacité sous une charge soutenue et "
+     "prolongée ; ce choix, parfaitement adapté à une démonstration, devrait être réévalué pour un usage réel "
+     "et continu par le cabinet."),
+    ("P", "Enfin, la couverture de tests automatisés de l'application, bien que présente et exécutée à chaque "
+     "intégration, gagnerait à être étendue : les scénarios nominaux sont couverts, mais les cas d'erreur, "
+     "les cas limites et les tests de charge mériteraient d'être développés pour fiabiliser davantage le "
+     "service avant une ouverture à des utilisateurs réels."),
 
     ("H1", "7. Annexe — documentation utilisateur (mon périmètre)"),
-    ("H2", "7.1 Déployer l'environnement"),
-    ("P", "Le déploiement se résume, pour l'utilisateur, à trois étapes. D'abord, renseigner les identifiants "
-     "Azure dans les secrets du dépôt (identifiant, mot de passe, tenant, abonnement). Ensuite, lancer le "
-     "workflow de déploiement depuis l'onglet Actions, ou pousser du code sur la branche principale. Enfin, "
-     "récupérer l'adresse d'accès affichée à la fin de l'exécution. L'infrastructure complète est alors "
-     "provisionnée puis l'application déployée, sans autre intervention."),
-    ("H2", "7.2 Utiliser l'application"),
-    ("P", "L'application est accessible à l'adresse publique de l'Ingress. L'interface web permet de créer, "
-     "consulter et supprimer des patients ; la documentation interactive de l'API, utile pour les tests ou "
-     "l'intégration, est publiée sous le chemin « /api/docs ». Les sondes « /healthz » et « /readyz » "
-     "permettent de vérifier rapidement, en ligne de commande, que le service et sa base répondent."),
-    ("H2", "7.3 Reconstruire ou détruire"),
-    ("P", "L'ensemble de l'infrastructure peut être reconstruit à l'identique par une seule commande, ou "
-     "détruit en choisissant l'action de destruction du workflow — ce qui stoppe toute facturation. Cette "
-     "reproductibilité est la garantie que le projet est duplicable et réutilisable, comme l'exige le cahier "
-     "des charges."),
+    ("H2", "7.1 Prérequis et configuration"),
+    ("P", "Avant tout déploiement, l'équipe renseigne dans les secrets du dépôt les identifiants Azure "
+     "(identifiant, mot de passe, tenant, abonnement) ainsi que l'adresse de courriel destinée aux alertes "
+     "budgétaires. Ces informations, chiffrées par GitHub, ne sont jamais visibles dans le code ni dans les "
+     "journaux d'exécution. Aucune autre préparation n'est nécessaire : le compte de stockage de l'état "
+     "Terraform est créé automatiquement lors du premier lancement."),
+    ("H2", "7.2 Déployer l'environnement"),
+    ("P", "Le déploiement se lance depuis l'onglet Actions du dépôt, ou automatiquement par un envoi de code "
+     "sur la branche principale. La chaîne provisionne l'infrastructure, construit et publie les images, puis "
+     "déploie l'application. À la fin de l'exécution, l'adresse publique d'accès est affichée. L'ensemble ne "
+     "demande aucune intervention manuelle intermédiaire."),
+    ("H2", "7.3 Utiliser l'application"),
+    ("P", "L'application est accessible à l'adresse publique de l'Ingress. L'interface web permet de gérer les "
+     "patients ; la documentation interactive de l'API, utile pour les tests ou une future intégration avec "
+     "d'autres logiciels du cabinet, est publiée sous le chemin « /api/docs ». Les points « /healthz » et "
+     "« /readyz » permettent de vérifier en une commande que le service et sa base répondent correctement."),
+    ("H2", "7.4 Reconstruire ou détruire"),
+    ("P", "L'ensemble de l'infrastructure peut être reconstruit à l'identique par une seule action, ou "
+     "détruit en choisissant l'action de destruction du workflow, ce qui interrompt immédiatement toute "
+     "facturation. Cette reproductibilité garantit que le projet est duplicable et réutilisable, comme "
+     "l'exige le cahier des charges."),
 
     ("H1", "8. Analyse personnelle"),
     ("H2", "Défis rencontrés"),
@@ -156,25 +200,36 @@ individual(
      "logique d'infrastructure et de déploiement entièrement automatisés et reproductibles. Cela m'a demandé "
      "de raisonner en permanence sur les cas d'échec et les états intermédiaires, et d'accepter plusieurs "
      "itérations avant d'obtenir une chaîne réellement fiable."),
+    ("P", "J'ai également dû apprendre à collaborer sur un périmètre partagé : nombre de problèmes que j'ai "
+     "rencontrés se situaient à la frontière avec les responsabilités d'Elyess ou d'Anis, ce qui m'a appris à "
+     "communiquer précisément et à documenter mes choix pour que l'équipe puisse s'appuyer dessus."),
     ("H2", "Forces"),
     ("P", "Je retiens comme force ma capacité à avoir une vision d'ensemble reliant le développement "
      "applicatif et son hébergement, ce qui m'a permis de concevoir une application pensée dès le départ pour "
-     "être déployée et exploitée. J'ai également su collaborer étroitement avec les responsables CI/CD et "
-     "Kubernetes pour résoudre des problèmes situés à la frontière de nos périmètres."),
+     "être déployée et exploitée, et non adaptée après coup."),
+    ("P", "J'ai aussi fait preuve de persévérance face aux difficultés d'industrialisation, en cherchant "
+     "systématiquement la cause racine d'un incident plutôt qu'un contournement rapide, ce qui a bénéficié à "
+     "la robustesse globale du projet."),
     ("H2", "Faiblesses"),
     ("P", "J'ai parfois eu tendance à vouloir déployer l'ensemble en une seule fois plutôt qu'à valider par "
-     "petits incréments testés, ce qui a occasionné des allers-retours. Par ailleurs, mes compétences en "
-     "sécurité réseau cloud, sollicitées par le choix d'hébergement de la base, restent à approfondir."),
+     "petits incréments testés, ce qui a occasionné des allers-retours qui auraient pu être évités par une "
+     "approche plus progressive."),
+    ("P", "Par ailleurs, mes compétences en sécurité réseau cloud, directement sollicitées par le choix "
+     "d'hébergement de la base, restent perfectibles et constituent un domaine que je dois approfondir."),
     ("H2", "Compétences développées"),
     ("P", "Ce projet m'a permis de consolider ma maîtrise de Terraform et de la conception d'infrastructure "
      "Azure, de la conteneurisation Docker et du déploiement via Helm, ainsi que du développement d'une API "
-     "moderne intégrée à une base de données. J'ai surtout acquis une compréhension concrète de "
-     "l'articulation entre code, infrastructure et exploitation."),
+     "moderne intégrée à une base de données relationnelle."),
+    ("P", "Au-delà des outils, j'ai acquis une compréhension concrète de l'articulation entre le code, "
+     "l'infrastructure et l'exploitation, qui est au cœur du métier DevOps et que seule la réalisation d'un "
+     "projet complet de bout en bout permet réellement d'intégrer."),
     ("H2", "Axes d'amélioration personnels"),
     ("P", "Pour de futurs projets, je souhaite adopter une approche plus incrémentale et systématiquement "
-     "testée des changements d'infrastructure, et renforcer mes connaissances en réseau cloud (réseaux "
-     "virtuels, points de terminaison privés, pare-feux applicatifs) afin de concevoir des architectures "
-     "plus sûres dès la première version."),
+     "testée des changements d'infrastructure, en validant chaque évolution isolément avant de l'intégrer à "
+     "l'ensemble."),
+    ("P", "Je compte également renforcer mes connaissances en réseau cloud — réseaux virtuels, points de "
+     "terminaison privés, pare-feux applicatifs — afin de concevoir dès la première version des architectures "
+     "plus sûres et plus proches des standards de production."),
     ],
 )
 
@@ -186,14 +241,19 @@ individual(
     [
     ("H1", "1. Contexte et rôle dans le projet"),
     ("P", "Ma mission a porté sur le cœur de la démarche DevOps : la chaîne d'intégration et de déploiement "
-     "continus. L'objectif fixé collectivement était ambitieux : obtenir un déploiement « en un clic », où "
-     "l'intégralité du cycle de vie — provisionnement de l'infrastructure, construction et analyse des "
-     "images, déploiement de l'application, configuration du stockage de sauvegarde — s'exécute "
-     "automatiquement, sans aucune intervention manuelle, et se rétablit seul en cas d'aléa."),
-    ("P", "Ce rôle est transversal par nature : la chaîne que j'ai construite orchestre le travail de tous les "
-     "autres membres, en assemblant l'infrastructure de Zaafir, le chart de déploiement d'Anis, la "
-     "supervision et les scans de sécurité d'Adame. J'ai donc dû comprendre chaque brique pour l'intégrer au "
-     "bon moment et dans le bon ordre au sein du pipeline."),
+     "continus. L'objectif fixé collectivement était ambitieux — obtenir un déploiement « en un clic » où "
+     "l'intégralité du cycle de vie s'exécute automatiquement, sans intervention manuelle, et se rétablit "
+     "seul en cas d'aléa : provisionnement de l'infrastructure, construction et analyse des images, "
+     "déploiement de l'application, configuration du stockage de sauvegarde."),
+    ("P", "Ce rôle est transversal par nature : la chaîne que j'ai construite orchestre le travail de tous "
+     "les autres membres, en assemblant au bon moment l'infrastructure de Zaafir, le chart de déploiement "
+     "d'Anis, la supervision et les scans de sécurité d'Adame. J'ai donc dû comprendre chaque brique pour "
+     "l'intégrer correctement, ce qui m'a offert une vue d'ensemble précieuse sur l'articulation de la "
+     "solution."),
+    ("P", "L'automatisation n'est pas une commodité : c'est elle qui rend le projet reproductible, "
+     "auditable et économe. Un déploiement manuel serait long, source d'erreurs et non traçable ; une chaîne "
+     "automatisée garantit au contraire que chaque mise en production suit exactement les mêmes étapes, "
+     "vérifiées et enregistrées, ce qui est une exigence forte du cahier des charges."),
 
     ("H1", "2. Ma contribution détaillée"),
     ("H2", "2.1 Architecture de la chaîne GitHub Actions"),
@@ -203,121 +263,158 @@ individual(
      "l'ensemble de la mise en production. Enfin, un workflow de sauvegarde, planifié quotidiennement, "
      "déclenche la réplication des données vers le site on-premise."),
     ("P", "Cette séparation en workflows spécialisés répond à un souci de clarté et d'efficacité : les "
-     "vérifications rapides (tests, analyses) s'exécutent à chaque proposition de modification, tandis que les "
-     "opérations lourdes et coûteuses (provisionnement, déploiement) ne sont déclenchées que de manière "
-     "maîtrisée, sur la branche principale ou manuellement."),
+     "vérifications rapides — tests, analyses — s'exécutent à chaque proposition de modification, tandis que "
+     "les opérations lourdes et coûteuses — provisionnement, déploiement — ne sont déclenchées que de manière "
+     "maîtrisée, sur la branche principale ou manuellement. Ce découpage limite aussi la consommation de "
+     "minutes d'exécution, ce qui participe indirectement à la sobriété du projet."),
 
     ("H2", "2.2 Automatisation du provisionnement et de l'état"),
     ("P", "J'ai automatisé la préparation de l'état distant de Terraform : le workflow crée si nécessaire le "
      "compte de stockage dédié, puis initialise Terraform sur cet état avant d'appliquer l'infrastructure. "
      "Cette étape, souvent laissée manuelle dans les projets, a été entièrement scriptée pour que rien ne "
-     "doive être préparé à l'avance."),
+     "doive être préparé à l'avance, ce qui rend le tout premier déploiement aussi simple que les suivants."),
     ("P", "L'authentification à Azure au sein de la chaîne s'appuie sur des identifiants stockés dans les "
      "secrets chiffrés de GitHub, jamais exposés dans les journaux. J'ai veillé à masquer explicitement les "
-     "valeurs sensibles (chaînes de connexion, mots de passe) dans les traces d'exécution, afin qu'elles "
-     "n'apparaissent jamais en clair, même en cas de débogage."),
+     "valeurs sensibles — chaînes de connexion, mots de passe — dans les traces d'exécution, afin qu'elles "
+     "n'apparaissent jamais en clair, même lors d'une session de débogage. Cette discipline est essentielle "
+     "car les journaux de CI sont souvent consultés et partagés."),
 
     ("H2", "2.3 Orchestration et ordonnancement des étapes"),
     ("P", "Le déploiement complet enchaîne, dans un ordre précis, la connexion à Azure, l'application "
-     "Terraform, la récupération des informations produites (adresses, identifiants), la construction et la "
-     "publication des images, leur analyse de sécurité, l'installation des briques du cluster puis le "
-     "déploiement de l'application et la configuration du site on-premise. J'ai dû gérer finement les "
-     "dépendances : par exemple, m'assurer que les définitions de ressources nécessaires à la supervision "
-     "sont installées <b>avant</b> l'application qui les référence, sous peine d'échec."),
+     "Terraform, la récupération des informations produites — adresses, identifiants — la construction et la "
+     "publication des images, leur analyse de sécurité, l'installation des briques du cluster, puis le "
+     "déploiement de l'application et la configuration du site on-premise."),
+    ("P", "J'ai dû gérer finement les dépendances entre ces étapes. L'exemple le plus parlant concerne la "
+     "supervision : les définitions de ressources personnalisées qu'elle introduit doivent être installées "
+     "<b>avant</b> l'application qui les référence, faute de quoi le déploiement échoue. Comprendre et "
+     "ordonner correctement ces dépendances a représenté une part importante de mon travail. La séquence "
+     "complète du pipeline est la suivante :"),
     ("FLOW", Spacer(1, 4)),
     ("FLOW", flow_vertical(CICD_STEPS)),
-    ("P", "J'ai également optimisé les temps d'exécution en supprimant des attentes bloquantes inutiles : "
-     "plutôt que d'attendre que chaque composant de supervision soit totalement prêt, la chaîne applique les "
-     "manifestes et laisse les composants converger en arrière-plan, ce qui a réduit la durée du déploiement "
-     "de façon significative."),
 
-    ("H2", "2.4 Fiabilisation et auto-réparation"),
-    ("P", "La partie la plus exigeante de mon travail a consisté à rendre le pipeline robuste face aux états "
-     "intermédiaires. Un déploiement interrompu pouvait laisser un verrou sur l'état de l'infrastructure, ou "
-     "une livraison Helm figée dans un état instable empêchant toute reprise. J'ai introduit des mécanismes "
-     "qui détectent ces situations et les corrigent automatiquement : libération du verrou résiduel, "
-     "nettoyage d'une livraison bloquée avant réinstallation."),
-    ("P", "Grâce à ces garde-fous, la chaîne est devenue <b>auto-réparante</b> : elle se remet d'elle-même "
-     "d'un incident sans qu'un opérateur ait à intervenir sur l'infrastructure, ce qui est une propriété "
-     "essentielle pour une exploitation sereine et conforme à l'esprit DevOps."),
+    ("H2", "2.4 Optimisation et fiabilisation"),
+    ("P", "J'ai optimisé les temps d'exécution en supprimant des attentes bloquantes inutiles : plutôt que "
+     "d'attendre que chaque composant de supervision soit totalement prêt, la chaîne applique les manifestes "
+     "et laisse les composants converger en arrière-plan, ce qui a réduit la durée du déploiement de façon "
+     "sensible tout en garantissant que les éléments réellement indispensables sont bien en place avant de "
+     "poursuivre."),
+    ("P", "La partie la plus exigeante a consisté à rendre le pipeline robuste face aux états intermédiaires. "
+     "Un déploiement interrompu pouvait laisser un verrou sur l'état de l'infrastructure, ou une livraison "
+     "Helm figée dans un état instable empêchant toute reprise. J'ai introduit des mécanismes qui détectent "
+     "ces situations et les corrigent automatiquement : libération du verrou résiduel, nettoyage d'une "
+     "livraison bloquée avant réinstallation. Grâce à ces garde-fous, la chaîne est devenue "
+     "<b>auto-réparante</b> et se remet d'elle-même d'un incident, sans qu'un opérateur ait à intervenir."),
 
     ("H1", "3. Choix techniques et justifications"),
     ("P", "Le cahier des charges évoquait GitLab CI ; nous avons retenu GitHub Actions, le dépôt étant "
-     "hébergé sur GitHub. Le principe reste identique — build, test, analyse, déploiement orchestré — et "
-     "GitHub Actions offre une intégration native avec le dépôt, un large catalogue d'actions réutilisables "
-     "et une gestion des secrets intégrée. Ce choix a donc été pragmatique et sans perte fonctionnelle."),
-    ("P", "J'ai privilégié un déploiement piloté par la chaîne (approche « push ») plutôt qu'un outil de "
-     "déploiement continu dédié, afin de rester simple et économe pour un MVP. Cette décision est réversible : "
-     "j'ai identifié le passage à une approche déclarative de type GitOps comme évolution naturelle une fois "
-     "le projet stabilisé."),
+     "hébergé sur GitHub. Le principe reste rigoureusement identique — build, test, analyse, déploiement "
+     "orchestré — et GitHub Actions offre une intégration native avec le dépôt, un large catalogue d'actions "
+     "réutilisables et une gestion des secrets intégrée. Ce choix a donc été pragmatique et sans perte "
+     "fonctionnelle par rapport à l'outil cité en exemple."),
+    ("P", "J'ai privilégié un déploiement piloté par la chaîne, selon une approche « push », plutôt qu'un "
+     "outil de déploiement continu dédié, afin de rester simple et économe pour un MVP. Introduire un "
+     "opérateur GitOps aurait ajouté un composant permanent à héberger sur le cluster, difficilement "
+     "justifiable au regard du budget ; j'ai néanmoins identifié cette évolution comme la suite logique une "
+     "fois le projet stabilisé."),
+    ("P", "Le choix de séparer les workflows plutôt que de tout concentrer dans un pipeline unique répond à "
+     "un principe de responsabilité claire : chaque workflow a un objectif précis, se déclenche sur les bons "
+     "événements et peut être compris et maintenu indépendamment des autres, ce qui facilite le travail à "
+     "plusieurs et la reprise du projet par un tiers."),
 
     ("H1", "4. Difficultés rencontrées et solutions apportées"),
     ("P", "J'ai été confronté à une série d'échecs typiques d'une première mise en production : une action "
-     "dont la version n'existait pas, un conflit de création de ressource déjà existante, un verrou d'état "
-     "résiduel, une livraison bloquée, un mauvais ordonnancement des dépendances. Plutôt que de les contourner "
-     "au cas par cas, j'ai traité chaque incident à la racine, en ajoutant le correctif durable "
-     "correspondant dans le pipeline."),
+     "dont la version référencée n'existait pas, un conflit lié à une ressource déjà existante, un verrou "
+     "d'état résiduel après une interruption, une livraison Helm bloquée, un mauvais ordonnancement des "
+     "dépendances. Plutôt que de les contourner au cas par cas, j'ai choisi de traiter chaque incident à sa "
+     "racine, en ajoutant dans le pipeline le correctif durable correspondant."),
+    ("P", "Par exemple, le conflit de création du namespace applicatif — créé à la fois par l'outil et par le "
+     "chart — a été résolu en confiant cette création à un seul mécanisme. De même, le déploiement de la "
+     "supervision qui échouait faute de définitions de ressources préalables a été corrigé en réordonnant les "
+     "étapes. Chacune de ces corrections a été validée par une exécution complète de la chaîne."),
     ("P", "Cette approche m'a beaucoup appris : un pipeline robuste ne se conçoit pas d'un seul jet, il se "
-     "durcit par itérations successives face aux situations réelles. Le résultat est une chaîne qui, "
-     "aujourd'hui, se déroule de bout en bout de façon fiable et reproductible."),
+     "durcit par itérations successives, au contact des situations réelles. Le résultat est une chaîne qui, "
+     "aujourd'hui, se déroule de bout en bout de façon fiable, reproductible et rapide, et qui se rétablit "
+     "seule en cas de problème."),
 
     ("H1", "5. Perspectives d'évolution"),
     ("P", "La première évolution que je viserais est l'adoption du GitOps, avec un outil tel qu'ArgoCD : "
-     "l'état souhaité du cluster serait décrit dans le dépôt et un opérateur se chargerait de faire "
-     "converger le cluster vers cet état, offrant traçabilité et retours arrière simplifiés."),
-    ("P", "J'introduirais ensuite une authentification fédérée OIDC pour supprimer les secrets de longue "
-     "durée, ainsi que des environnements distincts — développement, pré-production, production — avec une "
-     "promotion contrôlée des versions. Enfin, j'ajouterais des tests de bout en bout exécutés "
-     "automatiquement après chaque déploiement, afin de valider le bon fonctionnement de l'ensemble avant "
-     "d'ouvrir le service aux utilisateurs."),
+     "l'état souhaité du cluster serait décrit dans le dépôt, et un opérateur se chargerait en continu de "
+     "faire converger le cluster vers cet état, offrant une traçabilité complète et des retours arrière "
+     "instantanés."),
+    ("P", "J'introduirais ensuite une authentification fédérée OIDC pour supprimer définitivement les secrets "
+     "de longue durée, remplacés par des jetons éphémères, ce qui lèverait la contrainte actuelle d'un compte "
+     "sans double authentification et renforcerait nettement la sécurité de la chaîne."),
+    ("P", "Je mettrais également en place des environnements distincts — développement, pré-production et "
+     "production — avec une promotion contrôlée des versions de l'un à l'autre, afin que les essais ne se "
+     "déroulent plus directement sur l'unique cluster de production."),
+    ("P", "Enfin, j'ajouterais des tests de bout en bout exécutés automatiquement après chaque déploiement : "
+     "vérifier, avant d'ouvrir le service, que les parcours utilisateurs essentiels fonctionnent réellement "
+     "constituerait un filet de sécurité supplémentaire et compléterait naturellement les tests unitaires "
+     "déjà en place."),
 
     ("H1", "6. Analyse critique des limites"),
     ("P", "Regrouper le provisionnement et le déploiement dans un même workflow est pratique pour la "
-     "démonstration, mais allonge la durée d'exécution ; un découpage en jobs parallélisés, voire en pipelines "
-     "distincts pour l'infrastructure et l'application, serait plus efficace à l'échelle. L'authentification "
-     "par identifiant et mot de passe, quant à elle, impose un compte sans double authentification, ce qui "
-     "n'est pas acceptable en production."),
-    ("P", "Par ailleurs, l'absence d'environnement de pré-production fait que les essais se déroulent "
-     "directement sur l'unique cluster, et un déclenchement automatique sur chaque envoi de code pourrait "
-     "lancer des déploiements coûteux : un garde-fou explicite (validation manuelle, restriction de branche) "
-     "mériterait d'être renforcé."),
+     "démonstration, mais allonge la durée d'exécution ; un découpage en jobs parallélisés, voire en "
+     "pipelines distincts pour l'infrastructure et l'application, serait plus efficace à l'échelle et "
+     "permettrait de ne rejouer que ce qui a changé."),
+    ("P", "L'authentification par identifiant et mot de passe, retenue pour sa simplicité de mise en route, "
+     "impose un compte sans double authentification, ce qui n'est pas acceptable dans un contexte de "
+     "production et constitue la limite de sécurité la plus importante de mon périmètre."),
+    ("P", "Enfin, l'absence d'environnement de pré-production fait que les essais se déroulent directement sur "
+     "l'unique cluster, et un déclenchement automatique sur chaque envoi de code pourrait lancer des "
+     "déploiements coûteux ; un garde-fou explicite — validation manuelle, restriction par branche ou par "
+     "chemin de fichiers — mériterait d'être renforcé pour éviter toute dépense involontaire."),
 
     ("H1", "7. Annexe — documentation utilisateur (mon périmètre)"),
-    ("H2", "7.1 Lancer un déploiement"),
-    ("P", "Depuis l'onglet Actions du dépôt, l'utilisateur sélectionne le workflow de déploiement et "
-     "l'exécute en choisissant l'action de déploiement. La chaîne se charge de tout ; l'adresse d'accès à "
-     "l'application est affichée à la dernière étape. Un déploiement peut aussi être déclenché automatiquement "
-     "par un envoi de code sur la branche principale."),
-    ("H2", "7.2 Détruire l'infrastructure"),
+    ("H2", "7.1 Configurer les secrets"),
+    ("P", "Le fonctionnement de la chaîne repose sur quelques secrets à renseigner une seule fois dans les "
+     "paramètres du dépôt : les identifiants de connexion à Azure, l'identifiant de l'abonnement et du "
+     "tenant, et l'adresse de courriel des alertes budgétaires. Ces valeurs sont chiffrées par GitHub et "
+     "utilisées par les workflows sans jamais apparaître en clair."),
+    ("H2", "7.2 Lancer un déploiement"),
+    ("P", "Depuis l'onglet Actions, l'utilisateur sélectionne le workflow de déploiement et l'exécute en "
+     "choisissant l'action de déploiement ; la chaîne se charge de tout et affiche l'adresse d'accès à la "
+     "dernière étape. Un déploiement peut aussi être déclenché automatiquement par un envoi de code sur la "
+     "branche principale."),
+    ("H2", "7.3 Détruire l'infrastructure"),
     ("P", "Le même workflow, exécuté avec l'action de destruction, supprime l'ensemble des ressources et "
      "arrête la facturation. L'opération est sûre et reproductible : un déploiement ultérieur reconstruit "
-     "l'environnement à l'identique."),
-    ("H2", "7.3 Sauvegarder et restaurer"),
-    ("P", "Le workflow de sauvegarde s'exécute automatiquement chaque jour, et peut être déclenché "
-     "manuellement en mode sauvegarde ou restauration. Les secrets nécessaires à ces workflows sont décrits "
-     "dans la documentation d'installation du dépôt."),
+     "l'environnement à l'identique en une douzaine de minutes."),
+    ("H2", "7.4 Sauvegarder et restaurer"),
+    ("P", "Le workflow de sauvegarde s'exécute automatiquement chaque jour et peut être déclenché "
+     "manuellement, en mode sauvegarde ou en mode restauration. Il gère l'export chiffré des données vers le "
+     "site on-premise et leur réinjection en cas de besoin, sans qu'aucune connaissance technique "
+     "particulière ne soit requise de l'utilisateur."),
 
     ("H1", "8. Analyse personnelle"),
     ("H2", "Défis rencontrés"),
     ("P", "Mon principal défi a été de transformer une succession de scripts en une chaîne réellement fiable, "
      "capable d'absorber les aléas sans intervention humaine. Chaque échec rencontré était une énigme à "
-     "résoudre à la racine, ce qui a demandé rigueur et persévérance."),
+     "résoudre à la racine, ce qui a exigé rigueur, méthode et persévérance."),
+    ("P", "J'ai aussi dû composer avec le caractère transversal de mon rôle : dépendant du travail de chacun, "
+     "j'ai appris à coordonner mes évolutions avec celles des autres membres et à communiquer clairement sur "
+     "l'état de la chaîne, afin de ne pas bloquer l'équipe."),
     ("H2", "Forces"),
     ("P", "Je retiens ma rigueur dans l'ordonnancement et l'idempotence des étapes, ainsi que ma capacité à "
-     "diagnostiquer rapidement l'origine d'un échec de pipeline à partir des journaux d'exécution et à y "
-     "apporter un correctif durable plutôt qu'un contournement ponctuel."),
+     "diagnostiquer rapidement l'origine d'un échec de pipeline à partir des journaux d'exécution."),
+    ("P", "J'ai également su privilégier des corrections durables plutôt que des contournements ponctuels, ce "
+     "qui a durablement renforcé la fiabilité de l'ensemble et bénéficié à tout le groupe."),
     ("H2", "Faiblesses"),
     ("P", "Mes workflows sont encore trop monolithiques et gagneraient à être modularisés en briques "
-     "réutilisables. Par ailleurs, j'ai concentré mes efforts sur le fonctionnement au détriment, parfois, "
-     "de la sécurisation de la chaîne elle-même (authentification), que je dois approfondir."),
+     "réutilisables, ce qui en faciliterait la maintenance et la réutilisation."),
+    ("P", "Par ailleurs, j'ai concentré mes efforts sur le bon fonctionnement de la chaîne, parfois au "
+     "détriment de sa propre sécurisation — notamment l'authentification — que je dois encore approfondir."),
     ("H2", "Compétences développées"),
-    ("P", "J'ai gagné en maîtrise sur GitHub Actions (workflows, secrets, déclencheurs, gestion de la "
-     "concurrence), sur l'automatisation de Terraform et sur le diagnostic et la résilience des pipelines. "
-     "J'ai surtout compris ce qui distingue une automatisation fragile d'une chaîne réellement industrielle."),
+    ("P", "J'ai gagné en maîtrise sur GitHub Actions — workflows, secrets, déclencheurs, gestion de la "
+     "concurrence — ainsi que sur l'automatisation de Terraform et le diagnostic des pipelines."),
+    ("P", "J'ai surtout compris ce qui distingue une automatisation fragile d'une chaîne réellement "
+     "industrielle : la capacité à se rétablir seule et à produire un résultat identique à chaque exécution."),
     ("H2", "Axes d'amélioration personnels"),
-    ("P", "Je souhaite modulariser mes pipelines à l'aide de workflows réutilisables, mettre en place une "
-     "véritable stratégie multi-environnements et adopter le GitOps, afin de tendre vers des pratiques de "
-     "livraison continue de niveau professionnel."),
+    ("P", "Je souhaite modulariser mes pipelines à l'aide de workflows réutilisables et mettre en place une "
+     "véritable stratégie multi-environnements avec promotion contrôlée des versions."),
+    ("P", "Je compte également adopter le GitOps et renforcer mes compétences en sécurité de la chaîne "
+     "d'approvisionnement logicielle, afin de tendre vers des pratiques de livraison continue de niveau "
+     "professionnel."),
     ],
 )
 
