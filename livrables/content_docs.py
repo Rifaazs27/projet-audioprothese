@@ -21,6 +21,9 @@ def blocks(items):
     out = []
     for kind, val in items:
         if kind == "H1":
+            # Ne saute une page que s'il reste peu de place : évite les
+            # titres orphelins en bas de page sans créer de pages vides.
+            out.append(CondPageBreak(6 * cm))
             out.append(H1(val))
         elif kind == "H2":
             out.append(Paragraph(val, H2))
@@ -307,12 +310,7 @@ def individual(fichier, nom, role, infos_role, body_blocks):
                ["Période", PERIODE],
                ["Projet", "Plateforme de gestion d'un cabinet d'audioprothèse"],
                ["Domaine", infos_role]])
-    # Chaque grande section (H1) démarre sur une nouvelle page.
-    first = True
-    for kind, val in body_blocks:
-        if kind == "H1":
-            if not first:
-                s.append(PageBreak())
-            first = False
-        s += blocks([(kind, val)])
+    # Le contenu s'enchaîne naturellement ; un saut de page conditionnel
+    # (dans blocks) évite les titres orphelins sans laisser de pages vides.
+    s += blocks(body_blocks)
     build(fichier, s)

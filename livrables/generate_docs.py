@@ -9,7 +9,8 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_LEFT
 from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
-                                TableStyle, PageBreak, Flowable, KeepTogether)
+                                TableStyle, PageBreak, CondPageBreak, Flowable,
+                                KeepTogether)
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Polygon
 
 OUT = os.path.dirname(os.path.abspath(__file__))

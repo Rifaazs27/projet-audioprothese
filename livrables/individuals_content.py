@@ -33,9 +33,8 @@ individual(
      "techniques, du modèle de données jusqu'à la façon d'injecter les secrets dans les conteneurs."),
     ("P", "Concrètement, mon travail conditionnait celui des autres membres : sans infrastructure "
      "provisionnée et sans application conteneurisée, ni la chaîne d'intégration, ni la supervision, ni le "
-     "plan de reprise n'avaient d'objet. J'ai donc veillé, dès le début du projet en janvier, à livrer "
-     "rapidement une première version fonctionnelle, quitte à l'affiner ensuite, afin que chacun puisse "
-     "avancer sur son périmètre en s'appuyant sur une base concrète."),
+     "plan de reprise n'avaient d'objet. J'ai donc veillé, dès le début du projet, à livrer rapidement une "
+     "première version fonctionnelle afin que chacun puisse avancer sur son périmètre."),
 
     ("H1", "2. Ma contribution détaillée"),
     ("H2", "2.1 Conception de l'infrastructure Terraform"),
@@ -172,13 +171,7 @@ individual(
      "assumé : un réseau entièrement privé aurait été plus sûr, mais aurait ajouté une complexité — réseau "
      "virtuel dédié, résolution DNS privée, points de terminaison privés — difficilement justifiable pour un "
      "MVP au budget serré. J'ai documenté ce compromis afin qu'il soit clairement identifié comme un axe "
-     "d'amélioration prioritaire pour une éventuelle mise en production réelle. Le schéma ci-dessous situe la "
-     "base au sein du réseau cloud, face au site on-premise volontairement isolé :"),
-    ("FLOW", Spacer(1, 4)),
-    ("FLOW", network_topology()),
-    ("FLOW", Spacer(1, 4)),
-    ("P", "<i>Topologie réseau : le VNet cloud héberge le cluster et la base ; le site on-premise réside dans "
-     "un réseau totalement séparé, joint uniquement pour la réplication chiffrée des sauvegardes.</i>"),
+     "d'amélioration prioritaire pour une éventuelle mise en production réelle."),
     ("P", "Enfin, le choix d'images Docker multi-stage et non privilégiées relève à la fois de la sécurité et "
      "de la sobriété : des images plus petites consomment moins de stockage dans le registre, se transfèrent "
      "plus vite et réduisent la surface d'attaque, autant de bénéfices alignés avec les objectifs "
@@ -218,10 +211,9 @@ individual(
      "avantageusement la création automatique du schéma au démarrage : toute évolution de la structure de la "
      "base serait alors tracée, revue et réversible, ce qui est indispensable dès lors que des données réelles "
      "sont en jeu."),
-    ("P", "Enfin, si le périmètre fonctionnel s'élargissait — module de facturation, gestion du tiers payant, "
-     "notifications aux patients — l'API monolithique pourrait être découpée en services plus fins, "
-     "déployables et supervisables indépendamment, au prix d'une complexité accrue qu'il faudrait mettre en "
-     "balance avec les bénéfices attendus."),
+    ("P", "Enfin, si le périmètre fonctionnel s'élargissait — facturation, tiers payant, notifications aux "
+     "patients — l'API monolithique pourrait être découpée en services plus fins, au prix d'une complexité "
+     "accrue à mettre en balance avec les bénéfices attendus."),
 
     ("H1", "6. Analyse critique des limites"),
     ("P", "La limite la plus notable de mon périmètre tient au compromis réseau déjà évoqué : l'accès public "
@@ -291,10 +283,9 @@ individual(
      "l'infrastructure et l'exploitation, qui est au cœur du métier DevOps et que seule la réalisation d'un "
      "projet complet de bout en bout permet réellement d'intégrer."),
     ("H2", "Axes d'amélioration personnels"),
-    ("P", "Pour de futurs projets, je souhaite adopter une approche plus incrémentale et systématiquement "
-     "testée des changements d'infrastructure, en validant chaque évolution isolément avant de l'intégrer à "
-     "l'ensemble."),
-    ("P", "Je compte également renforcer mes connaissances en réseau cloud — réseaux virtuels, points de "
+    ("P", "Pour de futurs projets, je souhaite adopter une approche plus incrémentale et testée des "
+     "changements d'infrastructure, en validant chaque évolution isolément avant de l'intégrer à l'ensemble. "
+     "Je compte également renforcer mes connaissances en réseau cloud — réseaux virtuels, points de "
      "terminaison privés, pare-feux applicatifs — afin de concevoir dès la première version des architectures "
      "plus sûres et plus proches des standards de production."),
     ],
@@ -381,6 +372,34 @@ individual(
      "ces situations et les corrigent automatiquement : libération du verrou résiduel, nettoyage d'une "
      "livraison bloquée avant réinstallation. Grâce à ces garde-fous, la chaîne est devenue "
      "<b>auto-réparante</b> et se remet d'elle-même d'un incident, sans qu'un opérateur ait à intervenir."),
+
+    ("H2", "2.5 Journal des incidents et correctifs durables"),
+    ("P", "Plutôt que de contourner les échecs au cas par cas, j'ai tenu un véritable journal des incidents "
+     "rencontrés lors des premières mises en production, en traitant chacun à sa racine par un correctif "
+     "intégré définitivement au pipeline. Le tableau ci-dessous récapitule les principaux incidents, leur "
+     "cause profonde et la correction durable apportée :"),
+    ("FLOW", wrap_table([
+        ["Incident rencontré", "Cause racine", "Correctif durable intégré"],
+        ["Action de scan introuvable", "Référence de version inexistante", "Épinglage sur une référence valide"],
+        ["Namespace déjà existant", "Créé par l'outil et par le chart", "Création confiée à un seul mécanisme"],
+        ["Verrou d'état résiduel", "Déploiement interrompu", "Libération automatique avant chaque apply"],
+        ["Livraison Helm bloquée", "Release dans un état instable", "Détection puis réinstallation propre"],
+        ["Supervision en échec", "Définitions de ressources absentes", "Réordonnancement : CRD avant l'application"],
+        ["Sauvegarde en échec", "Caractère spécial dans le mot de passe", "Mot de passe strictement alphanumérique"],
+    ], [4.6 * cm, 4.6 * cm, CONTENT_W - 9.2 * cm])),
+    ("P", "Chaque correctif a été validé par une exécution complète de la chaîne avant d'être considéré comme "
+     "acquis. Ce journal illustre concrètement ma démarche : un pipeline fiable ne naît pas d'un seul jet, il "
+     "se durcit incident après incident, et chaque problème résolu à sa racine bénéficie durablement à "
+     "l'ensemble de l'équipe."),
+
+    ("H2", "2.6 Concurrence, déclencheurs et sobriété d'exécution"),
+    ("P", "J'ai également soigné la gestion de la concurrence : une contrainte empêche deux déploiements de "
+     "s'exécuter simultanément sur le même environnement, ce qui éviterait des états incohérents si deux envois "
+     "de code se succédaient rapidement. Les déclencheurs ont par ailleurs été calibrés avec soin — envoi sur "
+     "la branche principale, exécution manuelle avec choix de l'action, ou planification pour les sauvegardes — "
+     "afin qu'aucun déploiement coûteux ne parte par inadvertance. Cette maîtrise des déclencheurs participe "
+     "directement à la démarche FinOps de l'équipe, en évitant de consommer inutilement des ressources cloud "
+     "ou des minutes d'exécution."),
 
     ("H1", "3. Choix technologiques : pourquoi ces technologies plutôt que d'autres"),
     ("P", "Deux décisions ont structuré mon périmètre : le choix de la plateforme d'intégration et de "

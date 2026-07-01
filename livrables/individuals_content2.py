@@ -102,6 +102,34 @@ individual(
      "propager librement dans le cluster. Ces politiques constituent une défense en profondeur, complémentaire "
      "des autres mesures."),
 
+    ("H2", "2.7 Détail du tableau de bord Grafana"),
+    ("P", "Le tableau de bord que j'ai conçu s'articule autour des « signaux dorés » de la supervision d'un "
+     "service, complétés par le suivi des ressources. Chaque panneau a été choisi pour la décision qu'il "
+     "permet de prendre, et non pour la simple accumulation de courbes :"),
+    ("FLOW", wrap_table([
+        ["Panneau", "Indicateur mesuré", "Ce qu'il permet de diagnostiquer"],
+        ["Débit", "Requêtes par seconde et par route", "Charge réelle et usage effectif de l'API"],
+        ["Latence", "Temps de réponse au 95e centile", "Dégradation du ressenti utilisateur"],
+        ["Erreurs", "Taux de réponses en erreur serveur", "Fiabilité et régressions du service"],
+        ["Disponibilité", "État up/down du backend", "Interruptions et redémarrages"],
+        ["Ressources", "CPU et mémoire des conteneurs", "Saturation et dimensionnement"],
+    ], [3.0 * cm, 5.4 * cm, CONTENT_W - 8.4 * cm])),
+    ("P", "Ce tableau de bord est importé automatiquement à l'installation : un exploitant qui se connecte "
+     "dispose immédiatement d'une vue de santé complète, sans aucune configuration manuelle, ce qui est "
+     "essentiel pour une prise en main rapide en cas d'incident."),
+
+    ("H2", "2.8 Contribution à la conformité RGPD"),
+    ("P", "Les données manipulées étant des données de santé, j'ai veillé à ce que l'observabilité et la "
+     "sécurité concourent au respect du Règlement général sur la protection des données. Concrètement, les "
+     "journaux applicatifs sont structurés de façon à ne pas exposer d'informations directement "
+     "identifiantes, le chiffrement en transit (TLS) et au repos protège la confidentialité, et la traçabilité "
+     "des accès contribue au principe de responsabilité. La rétention volontairement courte des journaux "
+     "rejoint par ailleurs le principe de minimisation, qui recommande de ne pas conserver de données au-delà "
+     "du nécessaire."),
+    ("P", "Ces mesures ne suffisent pas à elles seules à garantir une conformité complète — qui supposerait "
+     "notamment un hébergement certifié pour les données de santé — mais elles installent les bons réflexes et "
+     "constituent une base saine sur laquelle une mise en conformité réglementaire pourrait s'appuyer."),
+
     ("H1", "3. Choix technologiques : pourquoi ces technologies plutôt que d'autres"),
     ("P", "Mon périmètre reposait sur deux familles d'outils : la pile d'observabilité et les analyseurs de "
      "sécurité. Chacune a été choisie après comparaison explicite avec ses alternatives, en pesant "
@@ -336,6 +364,36 @@ individual(
     ("FLOW", flow_horizontal([["Donnée", "créée"], ["Sauvegarde", "MinIO chiffré"],
                               ["Perte", "simulée"], ["Restauration", "(Ansible)"],
                               ["Donnée", "récupérée"]])),
+    ("FLOW", Spacer(1, 4)),
+    ("P", "<i>Cycle de reprise éprouvé de bout en bout : de la création d'une donnée témoin à sa récupération "
+     "après sauvegarde et perte volontairement simulée.</i>"),
+
+    ("H2", "2.6 Objectifs de reprise : RTO et RPO"),
+    ("P", "Un plan de reprise ne se juge pas à l'existence d'une sauvegarde, mais aux objectifs qu'il permet "
+     "de tenir. J'ai donc explicité les deux indicateurs de référence — le RPO, qui mesure la perte de données "
+     "maximale acceptable, et le RTO, qui mesure le délai de remise en service — et je les ai chiffrés pour "
+     "notre plateforme :"),
+    ("FLOW", wrap_table([
+        ["Objectif", "Définition", "Valeur retenue dans le projet"],
+        ["RPO", "Perte de données maximale acceptable", "≤ 24 h (sauvegarde quotidienne)"],
+        ["RTO", "Délai de remise en service", "≈ 15 min (restauration + redéploiement)"],
+        ["Fréquence de sauvegarde", "Rythme des exports chiffrés", "Quotidienne (cron) et à la demande"],
+        ["Rétention", "Durée de conservation des sauvegardes", "7 jours glissants"],
+    ], [3.8 * cm, 6.0 * cm, CONTENT_W - 9.8 * cm])),
+    ("P", "Ces valeurs sont cohérentes avec le caractère MVP du projet : une sauvegarde quotidienne suffit à un "
+     "cabinet dont le volume de données évolue lentement, et un délai de reprise d'un quart d'heure, rendu "
+     "possible par l'automatisation complète, serait tout à fait acceptable en cas d'incident. Une réduction "
+     "du RPO passerait par des sauvegardes plus fréquentes, au prix d'un stockage et d'un trafic accrus — un "
+     "arbitrage à réévaluer si le volume de données venait à croître."),
+
+    ("H2", "2.7 Structure paramétrable du chart Helm"),
+    ("P", "Pour rendre le déploiement réellement portable, j'ai externalisé toutes les données susceptibles de "
+     "changer d'un environnement à l'autre dans un fichier de valeurs, sans jamais toucher au corps du chart. "
+     "Le registre et l'étiquette des images, le nom d'hôte d'accès, le nombre de répliques, les seuils "
+     "d'autoscaling, l'activation de la supervision ou des politiques réseau se règlent ainsi par de simples "
+     "paramètres. Le même chart peut donc déployer l'application en local, en pré-production ou en production "
+     "en ne changeant qu'un jeu de valeurs, ce qui est la marque d'un packaging correctement conçu et facilite "
+     "grandement la reprise du projet par un tiers."),
 
     ("H1", "3. Choix technologiques : pourquoi ces technologies plutôt que d'autres"),
     ("P", "Trois décisions ont structuré mon périmètre : le gestionnaire de déploiement Kubernetes, la "
