@@ -2,7 +2,8 @@
 """Contenu détaillé des rendus individuels — Zaafir & Elyess (~10-13 pages)."""
 from content_docs import individual, CODE, wrap_table  # noqa
 from generate_docs import (flow_vertical, flow_horizontal, layered_stack,  # noqa
-                           network_topology, fan_out, Spacer, BLUE, CONTENT_W, cm)  # noqa
+                           network_topology, fan_out, screenshot, Spacer, BLUE,  # noqa
+                           CONTENT_W, cm)  # noqa
 
 CICD_STEPS = ["Connexion Azure (identifiants sécurisés)",
               "Terraform apply — provisionnement de l'infra",
@@ -82,6 +83,12 @@ individual(
      "chemin unique, ce qui simplifie considérablement le routage en production, où le frontend et le backend "
      "sont exposés derrière le même point d'entrée. J'ai porté attention à ce que l'expérience reste fluide "
      "même en cas d'erreur réseau, en affichant des messages compréhensibles à l'utilisateur."),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", screenshot("assets/app_dossier.png")),
+    ("FLOW", Spacer(1, 2)),
+    ("P", "<i>Capture d'écran de l'application : le dossier d'un patient réunit les deux rubriques métier — "
+     "l'enregistrement d'un appareil auditif (avec la liste des appareils déjà posés) et la prise de "
+     "rendez-vous de suivi.</i>"),
     ("P", "J'ai structuré l'application en couches nettement séparées, chacune n'ayant connaissance que de la "
      "couche immédiatement inférieure. Cette organisation, illustrée ci-dessous, rend le code lisible, "
      "testable et évolutif : on peut par exemple faire évoluer la logique d'accès aux données sans toucher "

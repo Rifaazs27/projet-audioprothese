@@ -266,6 +266,11 @@ g += blocks([
      "d'une vue d'ensemble des rendez-vous à venir. Ces fonctionnalités s'appuient sur l'ensemble cohérent de "
      "technologies ci-dessous, chacune choisie pour sa pertinence et son coût d'exploitation :"),
     ("FLOW", wrap_table(STACK, [5 * cm, CONTENT_W - 5 * cm])),
+    ("FLOW", Spacer(1, 6)),
+    ("FLOW", screenshot("assets/app_dossier.png")),
+    ("FLOW", Spacer(1, 2)),
+    ("P", "<i>L'application en fonctionnement : dossier patient avec l'enregistrement des appareils auditifs "
+     "et la prise de rendez-vous.</i>"),
     ("P", "<b>Déploiement automatisé.</b> Un simple envoi de code sur la branche principale, ou un "
      "déclenchement manuel, suffit à provisionner l'infrastructure, construire et analyser les images, puis "
      "déployer l'application — sans aucune manipulation manuelle. Le pipeline enchaîne la connexion à Azure, "
@@ -295,12 +300,14 @@ g += blocks([
      "volontairement supprimée, la restauration a permis de la retrouver à l'identique. L'ensemble de la "
      "solution a été déployé, testé de bout en bout et jugé conforme aux attentes du cahier des charges."),
     ("FLOW", Spacer(1, 6)),
-    ("FLOW", flow_horizontal([["Donnée", "créée"], ["Sauvegarde", "MinIO chiffré"],
-                              ["Perte", "simulée"], ["Restauration", "(Ansible)"],
-                              ["Donnée", "récupérée"]])),
-    ("FLOW", Spacer(1, 4)),
-    ("P", "<i>Cycle de reprise d'activité validé en conditions réelles : de la création d'une donnée à sa "
-     "récupération après sauvegarde et perte simulée.</i>"),
+    ("FLOW", KeepTogether([
+        flow_horizontal([["Donnée", "créée"], ["Sauvegarde", "MinIO chiffré"],
+                         ["Perte", "simulée"], ["Restauration", "(Ansible)"],
+                         ["Donnée", "récupérée"]]),
+        Spacer(1, 4),
+        P("<i>Cycle de reprise d'activité validé en conditions réelles : de la création d'une donnée à sa "
+          "récupération après sauvegarde et perte simulée.</i>"),
+    ])),
 ])
 
 build("PE-2526_%s_Mougammadou_Rjafellah_Nianghane_Douadi.pdf" % CODE, g)

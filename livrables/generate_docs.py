@@ -12,6 +12,8 @@ from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
                                 TableStyle, PageBreak, CondPageBreak, Flowable,
                                 KeepTogether)
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Polygon
+from reportlab.platypus import Image as RLImage
+from reportlab.lib.utils import ImageReader
 
 OUT = os.path.dirname(os.path.abspath(__file__))
 CODE = "M2DOC"                # code promo (classe M2 DO C)
@@ -405,6 +407,26 @@ def network_topology():
     d.add(String(midx, 12, "réseaux isolés — aucun peering", fontSize=7,
                  fillColor=GREY, textAnchor="middle"))
     return d
+
+
+# ------------------------------------------------------ captures d'écran réelles
+def screenshot(name, max_w=CONTENT_W, max_h=19 * cm):
+    """Insère une capture d'écran (fichier dans livrables/), cadrée et bordée,
+    mise à l'échelle pour tenir dans la page sans débordement."""
+    path = name if os.path.isabs(name) else os.path.join(OUT, name)
+    iw, ih = ImageReader(path).getSize()
+    w, h = max_w, max_w * ih / iw
+    if h > max_h:
+        h, w = max_h, max_h * iw / ih
+    img = RLImage(path, width=w, height=h)
+    img.hAlign = "CENTER"
+    t = Table([[img]], colWidths=[w], hAlign="CENTER")
+    t.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.8, GREY),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    return KeepTogether([t])
 
 
 # ----------------------------------------------------------------- assemblage
