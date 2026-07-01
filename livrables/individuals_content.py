@@ -1,6 +1,15 @@
 # -*- coding: utf-8 -*-
 """Contenu détaillé des rendus individuels (~10 pages chacun)."""
 from content_docs import individual, CODE  # noqa
+from generate_docs import flow_vertical, flow_horizontal, Spacer, BLUE  # noqa
+
+CICD_STEPS = ["Connexion Azure (identifiants sécurisés)",
+              "Terraform apply — provisionnement de l'infra",
+              "Build & push des images vers ACR",
+              "Scan de sécurité Trivy (bloquant)",
+              "Installation Ingress + supervision",
+              "Déploiement Helm de l'application",
+              "Configuration MinIO on-premise (Ansible)"]
 
 # ============================================================ ZAAFIR
 individual(
@@ -38,6 +47,10 @@ individual(
      "fragile, nous avons opté pour un état distant stocké dans un compte de stockage Azure, ce qui permet le "
      "travail à plusieurs et évite les conflits. J'ai conçu la configuration de sorte que ce stockage soit "
      "créé automatiquement s'il n'existe pas, supprimant toute étape préalable manuelle."),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", flow_vertical(["terraform apply", "Groupe de ressources Azure",
+                            "AKS · ACR · PostgreSQL Flexible",
+                            "VM on-premise · budget FinOps"])),
 
     ("H2", "2.2 Développement de l'application"),
     ("P", "J'ai développé le cœur applicatif avec le framework FastAPI, en Python. L'API expose les "
@@ -66,6 +79,9 @@ individual(
      "par l'intermédiaire d'un secret Kubernetes injecté au moment du déploiement, et jamais écrit en clair "
      "dans le dépôt. J'ai enfin coordonné l'enchaînement complet du déploiement de bout en bout et vérifié, "
      "après chaque livraison, le bon fonctionnement de l'application, de la base et de l'interface."),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", flow_horizontal([["Utilisateur"], ["Ingress", "NGINX"],
+                              ["Frontend /", "Backend"], ["PostgreSQL", "(TLS)"]], color=BLUE)),
 
     ("H1", "3. Choix techniques et justifications"),
     ("P", "Le choix de FastAPI s'explique par sa rapidité de mise en œuvre, sa documentation automatique de "
@@ -208,6 +224,8 @@ individual(
      "déploiement de l'application et la configuration du site on-premise. J'ai dû gérer finement les "
      "dépendances : par exemple, m'assurer que les définitions de ressources nécessaires à la supervision "
      "sont installées <b>avant</b> l'application qui les référence, sous peine d'échec."),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", flow_vertical(CICD_STEPS)),
     ("P", "J'ai également optimisé les temps d'exécution en supprimant des attentes bloquantes inutiles : "
      "plutôt que d'attendre que chaque composant de supervision soit totalement prêt, la chaîne applique les "
      "manifestes et laisse les composants converger en arrière-plan, ce qui a réduit la durée du déploiement "

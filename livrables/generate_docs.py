@@ -2,6 +2,7 @@
 """Génère les livrables PDF (groupe + individuels) — mise en page soignée,
 rédaction en paragraphes, schéma d'architecture et diagramme de Gantt."""
 import os
+import math
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm, mm
 from reportlab.lib import colors
@@ -229,6 +230,114 @@ def gantt():
         bx = label_w + start * month_w
         bw = max(dur * month_w, 8)
         d.add(Rect(bx, y, bw, row_h - 6, rx=3, ry=3, fillColor=col, strokeColor=col))
+    return d
+
+
+# ---------------------------------------------------- boîte à outils diagrammes
+def _dbox(d, x, y, w, h, lines, fill, fg=WHITE, fs=9, bold=True, r=5):
+    d.add(Rect(x, y, w, h, rx=r, ry=r, fillColor=fill,
+               strokeColor=colors.HexColor("#9fb3c8"), strokeWidth=0.7))
+    if isinstance(lines, str):
+        lines = [lines]
+    ty = y + h / 2 + (len(lines) - 1) * 6
+    for ln in lines:
+        d.add(String(x + w / 2, ty - 3, ln, fontSize=fs, fillColor=fg,
+                     textAnchor="middle",
+                     fontName="Helvetica-Bold" if bold else "Helvetica"))
+        ty -= 12.5
+
+
+def _arrow(d, x1, y1, x2, y2, color=GREY):
+    d.add(Line(x1, y1, x2, y2, strokeColor=color, strokeWidth=1.3))
+    a = math.atan2(y2 - y1, x2 - x1)
+    l = 7
+    d.add(Polygon([x2, y2, x2 - l * math.cos(a - 0.4), y2 - l * math.sin(a - 0.4),
+                   x2 - l * math.cos(a + 0.4), y2 - l * math.sin(a + 0.4)],
+                  fillColor=color, strokeColor=color))
+
+
+def flow_vertical(steps, color=BLUE, box_h=30, gap=18):
+    n = len(steps)
+    H = n * box_h + (n - 1) * gap + 6
+    d = Drawing(CONTENT_W, H)
+    bw = CONTENT_W * 0.60
+    bx = (CONTENT_W - bw) / 2
+    y = H - box_h
+    for i, s in enumerate(steps):
+        _dbox(d, bx, y, bw, box_h, s, color, fs=9.5)
+        if i < n - 1:
+            _arrow(d, CONTENT_W / 2, y, CONTENT_W / 2, y - gap)
+        y -= box_h + gap
+    return d
+
+
+def flow_horizontal(steps, color=ACCENT, box_h=42):
+    n = len(steps)
+    gap = 14
+    bw = (CONTENT_W - (n - 1) * gap) / n
+    H = box_h + 8
+    d = Drawing(CONTENT_W, H)
+    x, y = 0, 4
+    for i, s in enumerate(steps):
+        _dbox(d, x, y, bw, box_h, s, color, fs=8.3)
+        if i < n - 1:
+            _arrow(d, x + bw, y + box_h / 2, x + bw + gap, y + box_h / 2)
+        x += bw + gap
+    return d
+
+
+def barh(pairs, unit="$/mois", color=BLUE):
+    n = len(pairs)
+    row_h = 26
+    H = n * row_h + 10
+    label_w = 132
+    axis_w = CONTENT_W - label_w - 70
+    maxv = max(v for _, v in pairs)
+    d = Drawing(CONTENT_W, H)
+    y = H - row_h
+    for label, v in pairs:
+        d.add(String(0, y + 8, label, fontSize=9, fillColor=NAVY, fontName="Helvetica"))
+        bw = max(axis_w * v / maxv, 2)
+        d.add(Rect(label_w, y + 3, bw, row_h - 12, rx=2, ry=2, fillColor=color, strokeColor=color))
+        d.add(String(label_w + bw + 6, y + 6, "%g %s" % (v, unit), fontSize=8.5,
+                     fillColor=GREY, fontName="Helvetica-Bold"))
+        y -= row_h
+    return d
+
+
+def obs_diagram():
+    W, H = CONTENT_W, 190
+    d = Drawing(W, H)
+    _dbox(d, 0, H - 70, 110, 44, ["Application", "(métriques + logs)"], BLUE, fs=8.5)
+    _dbox(d, 175, H - 46, 120, 30, "Prometheus", ACCENT)
+    _dbox(d, 175, H - 110, 120, 30, "Loki", ACCENT)
+    _dbox(d, 360, H - 78, 120, 40, ["Grafana", "tableaux de bord"], BLUE, fs=8.5)
+    _dbox(d, 175, H - 170, 120, 30, "Alertmanager", GREY)
+    _dbox(d, 360, H - 170, 120, 30, ["Slack / Teams"], BLUE)
+    _arrow(d, 110, H - 40, 175, H - 31)      # app -> prometheus (métriques)
+    _arrow(d, 110, H - 56, 175, H - 95)      # app -> loki (logs)
+    _arrow(d, 295, H - 31, 360, H - 52)      # prometheus -> grafana
+    _arrow(d, 295, H - 95, 360, H - 62)      # loki -> grafana
+    _arrow(d, 235, H - 46, 235, H - 140)     # prometheus -> alertmanager
+    _arrow(d, 295, H - 155, 360, H - 155)    # alertmanager -> slack
+    d.add(String(118, H - 34, "métriques", fontSize=7, fillColor=GREY))
+    d.add(String(118, H - 70, "logs", fontSize=7, fillColor=GREY))
+    return d
+
+
+def helm_diagram():
+    W, H = CONTENT_W, 200
+    d = Drawing(W, H)
+    d.add(Rect(0, 0, W, H, rx=8, ry=8, fillColor=LIGHT2, strokeColor=BLUE, strokeWidth=1.1))
+    d.add(String(14, H - 20, "Chart Helm « audioprothese »", fontSize=11,
+                 fillColor=NAVY, fontName="Helvetica-Bold"))
+    objs = ["Deployment backend", "Deployment frontend", "Service", "Ingress",
+            "Secret (DB)", "HorizontalPodAutoscaler", "ServiceMonitor", "NetworkPolicy"]
+    cols, cw, ch, gx, gy = 2, (W - 60) / 2, 30, 20, 14
+    x0, y0 = 24, H - 60
+    for i, o in enumerate(objs):
+        r, c = divmod(i, cols)
+        _dbox(d, x0 + c * (cw + gx), y0 - r * (ch + gy), cw, ch, o, BLUE, fs=9)
     return d
 
 

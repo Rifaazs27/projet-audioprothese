@@ -143,6 +143,12 @@ g += blocks([
      "indicatif mensuel si la ressource fonctionnait en continu, et la justification du choix. Les montants "
      "sont donnés en dollars, à titre indicatif, sur la base des tarifs de la région Poland Central :"),
     ("FLOW", wrap_table(COST, [3.6 * cm, 3.4 * cm, 2.0 * cm, CONTENT_W - 9.0 * cm])),
+    ("FLOW", Spacer(1, 8)),
+    ("P", "La répartition mensuelle de ces coûts (en fonctionnement continu) fait clairement ressortir la "
+     "prédominance du calcul, sur lequel se sont concentrés nos efforts d'optimisation :"),
+    ("FLOW", barh([("AKS (2 nœuds)", 65), ("VM on-premise", 30), ("PostgreSQL", 13),
+                   ("Réseau (LB + IP)", 8), ("Registre ACR", 5), ("Stockage", 1)])),
+    ("FLOW", Spacer(1, 6)),
     ("P", "Le poste le plus lourd est le pool de nœuds AKS, suivi de la machine virtuelle on-premise. C'est "
      "logiquement sur ces deux postes que nous avons concentré nos efforts d'optimisation, en privilégiant des "
      "machines « burstable » de la série B — dont le tarif est réduit tant que la charge moyenne reste faible, "
@@ -260,6 +266,15 @@ g += blocks([
      "l'application Terraform, la construction et la publication des images, un scan de vulnérabilités "
      "bloquant, l'installation de l'Ingress et de la supervision, le déploiement de l'application puis la "
      "configuration du stockage de sauvegarde. Il est conçu pour se rétablir seul en cas d'interruption."),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", flow_vertical(["Connexion Azure (identifiants sécurisés)",
+                            "Terraform apply — provisionnement de l'infra",
+                            "Build & push des images vers ACR",
+                            "Scan de sécurité Trivy (bloquant)",
+                            "Installation Ingress + supervision",
+                            "Déploiement Helm de l'application",
+                            "Configuration MinIO on-premise (Ansible)"])),
+    ("FLOW", Spacer(1, 6)),
     ("P", "<b>Orchestration et résilience.</b> L'application est packagée sous forme de chart Helm et exécutée "
      "sur Kubernetes, qui assure le redémarrage automatique des conteneurs défaillants et l'ajustement du "
      "nombre de répliques selon la charge. Les conteneurs s'exécutent sans privilèges, le réseau interne est "
@@ -273,6 +288,13 @@ g += blocks([
      "<b>validé en conditions réelles</b> : après avoir créé une donnée témoin, l'avoir sauvegardée puis "
      "volontairement supprimée, la restauration a permis de la retrouver à l'identique. L'ensemble de la "
      "solution a été déployé, testé de bout en bout et jugé conforme aux attentes du cahier des charges."),
+    ("FLOW", Spacer(1, 6)),
+    ("FLOW", flow_horizontal([["Donnée", "créée"], ["Sauvegarde", "MinIO chiffré"],
+                              ["Perte", "simulée"], ["Restauration", "(Ansible)"],
+                              ["Donnée", "récupérée"]])),
+    ("FLOW", Spacer(1, 4)),
+    ("P", "<i>Cycle de reprise d'activité validé en conditions réelles : de la création d'une donnée à sa "
+     "récupération après sauvegarde et perte simulée.</i>"),
 ])
 
 build("PE-2526_%s_Mougammadou_Rjafellah_Nianghane_Douadi.pdf" % CODE, g)

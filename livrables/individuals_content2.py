@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Rendus individuels détaillés — Adame & Anis."""
 from content_docs import individual, CODE  # noqa
+from generate_docs import obs_diagram, helm_diagram, flow_horizontal, Spacer  # noqa
 
 # ============================================================ ADAME
 individual(
@@ -53,6 +54,11 @@ individual(
      "lorsque le taux d'erreurs dépasse un seuil ou lorsque la latence se dégrade. Ces alertes sont routées "
      "par Alertmanager vers une messagerie d'équipe (Slack ou Teams) au moyen d'un point d'entrée dédié. "
      "L'objectif est de prévenir l'équipe d'un incident avant même que les utilisateurs ne s'en aperçoivent."),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", obs_diagram()),
+    ("P", "<i>Chaîne d'observabilité : l'application émet métriques et journaux, collectés par Prometheus et "
+     "Loki, visualisés dans Grafana ; les alertes sont routées par Alertmanager vers la messagerie de "
+     "l'équipe.</i>"),
 
     ("H2", "2.5 Sécurité de la chaîne (DevSecOps)"),
     ("P", "J'ai intégré dans la chaîne d'intégration trois analyses complémentaires. Trivy examine les "
@@ -176,6 +182,9 @@ individual(
      "valeurs différentes, peut déployer l'application en local, en pré-production ou en production. J'ai "
      "veillé à ce que le déploiement soit idempotent et à ce que la mise à jour d'une version se fasse par "
      "remplacement progressif des conteneurs, sans interruption de service."),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", helm_diagram()),
+    ("P", "<i>Objets Kubernetes décrits et déployés par le chart Helm de l'application.</i>"),
 
     ("H2", "2.2 Résilience et autoscaling"),
     ("P", "J'ai configuré des sondes de vivacité et de disponibilité qui permettent à Kubernetes de "
@@ -213,6 +222,10 @@ individual(
     ("P", "J'ai rendu la restauration <b>idempotente</b>, c'est-à-dire rejouable même sur une base déjà "
      "peuplée, en incluant dans l'export les instructions de remise à zéro nécessaires. C'est cette propriété "
      "qui rend le plan de reprise réellement fiable et non seulement théorique."),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", flow_horizontal([["Donnée", "créée"], ["Sauvegarde", "MinIO chiffré"],
+                              ["Perte", "simulée"], ["Restauration", "(Ansible)"],
+                              ["Donnée", "récupérée"]])),
 
     ("H1", "3. Choix techniques et justifications"),
     ("P", "Helm s'est imposé comme le gestionnaire de paquets de référence pour Kubernetes, car il permet de "
