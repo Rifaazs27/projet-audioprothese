@@ -260,8 +260,11 @@ STACK = [
 ]
 g += blocks([
     ("H1", "5. Présentation de la solution technique"),
-    ("P", "La solution repose sur un ensemble cohérent de technologies, chacune choisie pour sa pertinence et "
-     "son coût d'exploitation :"),
+    ("P", "Sur le plan fonctionnel, l'application couvre les trois besoins métier du cabinet : la gestion des "
+     "<b>patients</b>, l'<b>enregistrement des appareils auditifs</b> qui leur sont posés (marque, modèle, "
+     "numéro de série, oreille, date de pose) et la <b>planification des rendez-vous</b> de suivi, assortie "
+     "d'une vue d'ensemble des rendez-vous à venir. Ces fonctionnalités s'appuient sur l'ensemble cohérent de "
+     "technologies ci-dessous, chacune choisie pour sa pertinence et son coût d'exploitation :"),
     ("FLOW", wrap_table(STACK, [5 * cm, CONTENT_W - 5 * cm])),
     ("P", "<b>Déploiement automatisé.</b> Un simple envoi de code sur la branche principale, ou un "
      "déclenchement manuel, suffit à provisionner l'infrastructure, construire et analyser les images, puis "

@@ -74,11 +74,14 @@ individual(
      "de redémarrer un conteneur ou de lui envoyer du trafic. J'ai également exposé un point de terminaison "
      "de métriques, consommé par la supervision mise en place par Adame, ce qui illustre l'interdépendance de "
      "nos périmètres."),
-    ("P", "Côté interface, j'ai réalisé un frontend React servi par un serveur nginx, permettant au cabinet "
-     "de consulter, créer et supprimer des patients de façon simple et immédiate. L'interface consomme l'API "
-     "via un chemin unique, ce qui simplifie considérablement le routage en production, où le frontend et le "
-     "backend sont exposés derrière le même point d'entrée. J'ai porté attention à ce que l'expérience reste "
-     "fluide même en cas d'erreur réseau, en affichant des messages compréhensibles à l'utilisateur."),
+    ("P", "Côté interface, j'ai réalisé un frontend React servi par un serveur nginx. Au-delà de la gestion "
+     "des patients (consultation, création, suppression), chaque dossier patient donne accès à deux rubriques "
+     "métier essentielles au cabinet : l'<b>enregistrement des appareils auditifs</b> (marque, modèle, numéro "
+     "de série, oreille appareillée et date de pose) et la <b>prise de rendez-vous</b> de suivi (date, heure "
+     "et motif), complétée par une vue d'ensemble des rendez-vous à venir. L'interface consomme l'API via un "
+     "chemin unique, ce qui simplifie considérablement le routage en production, où le frontend et le backend "
+     "sont exposés derrière le même point d'entrée. J'ai porté attention à ce que l'expérience reste fluide "
+     "même en cas d'erreur réseau, en affichant des messages compréhensibles à l'utilisateur."),
     ("P", "J'ai structuré l'application en couches nettement séparées, chacune n'ayant connaissance que de la "
      "couche immédiatement inférieure. Cette organisation, illustrée ci-dessous, rend le code lisible, "
      "testable et évolutif : on peut par exemple faire évoluer la logique d'accès aux données sans toucher "
@@ -244,9 +247,11 @@ individual(
      "demande aucune intervention manuelle intermédiaire."),
     ("H2", "7.3 Utiliser l'application"),
     ("P", "L'application est accessible à l'adresse publique de l'Ingress. L'interface web permet de gérer les "
-     "patients ; la documentation interactive de l'API, utile pour les tests ou une future intégration avec "
-     "d'autres logiciels du cabinet, est publiée sous le chemin « /api/docs ». Les points « /healthz » et "
-     "« /readyz » permettent de vérifier en une commande que le service et sa base répondent correctement."),
+     "patients, d'enregistrer leurs appareils auditifs et de planifier leurs rendez-vous de suivi depuis le "
+     "dossier de chaque patient. La documentation interactive de l'API, utile pour les tests ou une future "
+     "intégration avec d'autres logiciels du cabinet, est publiée sous le chemin « /api/docs ». Les points "
+     "« /healthz » et « /readyz » permettent de vérifier en une commande que le service et sa base répondent "
+     "correctement."),
     ("H2", "7.4 Reconstruire ou détruire"),
     ("P", "L'ensemble de l'infrastructure peut être reconstruit à l'identique par une seule action, ou "
      "détruit en choisissant l'action de destruction du workflow, ce qui interrompt immédiatement toute "
