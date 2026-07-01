@@ -21,6 +21,12 @@ export const api = {
   createPatient: (data) =>
     request('/api/patients', { method: 'POST', body: JSON.stringify(data) }),
   deletePatient: (id) => request(`/api/patients/${id}`, { method: 'DELETE' }),
+  // Enregistrement d'un appareil auditif pour un patient
   addAppareil: (id, data) =>
     request(`/api/patients/${id}/appareils`, { method: 'POST', body: JSON.stringify(data) }),
+  // Prise de rendez-vous pour un patient
+  addRendezVous: (id, data) =>
+    request(`/api/patients/${id}/rendez-vous`, { method: 'POST', body: JSON.stringify(data) }),
+  // Liste globale des rendez-vous (triés par date)
+  listRendezVous: () => request('/api/rendez-vous'),
 }
