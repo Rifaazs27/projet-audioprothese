@@ -1,22 +1,25 @@
-# Livrables PDF — Projet d'étude M2 DevOps
+# Livrables PDF — Projet d'étude M2 DevOps (classe M2 DO C)
 
-Générés avec `generate_docs.py` (mise en page) + `content_docs.py` (contenu) via **reportlab**.
+Générés avec **reportlab** :
+- `generate_docs.py` : mise en page (bandeaux, styles, schéma d'archi, Gantt).
+- `content_docs.py` : contenu groupe + fonction `individual()`.
+- `individuals_content.py` / `individuals_content2.py` : contenu détaillé des rendus individuels.
 
-- `PE-2526_CODEPROMO_Mougammadou_Rjafellah_Nianghane_Douadi.pdf` — **rendu groupe** (6 p., schéma d'architecture + Gantt Jan→Juin 2026)
-- `PE-2526_CODEPROMO_<NomPrenom>.pdf` — **rendus individuels** (3 p. chacun)
+## Fichiers
+- `PE-2526_M2DOC_Mougammadou_Rjafellah_Nianghane_Douadi.pdf` — **rendu groupe** (8 p. : entreprise/équipe, problématique/solution + schéma, FinOps détaillé, organisation/Gantt, solution technique).
+- `PE-2526_M2DOC_MougammadouZaafir.pdf` — individuel Zaafir (10 p.).
+- `PE-2526_M2DOC_RjafellahElyess.pdf` — individuel Elyess (10 p.).
+- `PE-2526_M2DOC_NianghaneAdame.pdf` — individuel Adame (10 p.).
+- `PE-2526_M2DOC_DouadiAnis.pdf` — individuel Anis (10 p.).
 
-## Avant de rendre
-1. Remplacer `CODEPROMO` par votre code promo réel :
-   - dans les **noms de fichiers**,
-   - dans `generate_docs.py` (variable `CODE`).
-2. Régénérer :
-   ```bash
-   pip install reportlab
-   cd livrables && python3 content_docs.py
-   ```
-3. Zipper : `PE_2526_CODEPROMO_Mougammadou_Rjafellah_Nianghane_Douadi.zip`.
+## Régénérer
+```bash
+pip install reportlab
+cd livrables
+python3 content_docs.py            # génère le groupe
+python3 individuals_content.py     # Zaafir + Elyess
+python3 individuals_content2.py    # Adame + Anis
+```
 
-Contenu rédigé en paragraphes, conforme au cadre pédagogique (groupe :
-entreprise/équipe, problématique/solution, coûts FinOps M2, organisation/
-planning, solution technique ; individuels : contribution, perspectives,
-limites, annexes + analyse personnelle).
+## À rendre
+Zipper : `PE_2526_M2DOC_Mougammadou_Rjafellah_Nianghane_Douadi.zip` (contenant le PDF groupe + les 4 PDF individuels).

@@ -12,7 +12,8 @@ from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Polygon
 
 OUT = os.path.dirname(os.path.abspath(__file__))
-CODE = "CODEPROMO"            # <- remplacer par votre code promo
+CODE = "M2DOC"                # code promo (classe M2 DO C)
+CLASSE = "M2 DO C"
 PERIODE = "Janvier – Juin 2026"
 
 # Palette « Canva »
@@ -256,8 +257,8 @@ def cover(title, subtitle, infos_rows):
     s = [Spacer(1, 0.4 * cm), Banner(title, subtitle), Spacer(1, 0.9 * cm)]
     s.append(wrap_table(infos_rows, [4.3 * cm, CONTENT_W - 4.3 * cm], header=False, zebra=True))
     s.append(Spacer(1, 0.6 * cm))
-    s.append(P("SUP DE VINCI — Expert en Systèmes d'Information — Promotion 2025-2026. "
-               "Document réalisé dans le cadre du projet d'étude du Mastère DevOps. "
-               "Code promo : <b>%s</b> (à compléter par l'équipe)." % CODE, NOTE))
+    s.append(P("SUP DE VINCI — Expert en Systèmes d'Information — Mastère DevOps — "
+               "Classe <b>%s</b> — Promotion 2025-2026. Document réalisé dans le cadre du "
+               "projet d'étude de fin d'année." % CLASSE, NOTE))
     s.append(PageBreak())
     return s
