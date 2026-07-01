@@ -1,21 +1,22 @@
 # Livrables PDF — Projet d'étude M2 DevOps
 
-- `PE-2526_CODEPROMO_Mougammadou_Rjafellah_Nianghane_Douadi.pdf` — **rendu groupe** (8 p.)
-- `PE-2526_CODEPROMO_<NomPrenom>.pdf` — **rendus individuels** (4 p. chacun)
+Générés avec `generate_docs.py` (mise en page) + `content_docs.py` (contenu) via **reportlab**.
 
-## ⚠️ Avant de rendre
-1. Remplacer `CODEPROMO` par votre code promo réel (ex. `M2DEVA`) :
+- `PE-2526_CODEPROMO_Mougammadou_Rjafellah_Nianghane_Douadi.pdf` — **rendu groupe** (6 p., schéma d'architecture + Gantt Jan→Juin 2026)
+- `PE-2526_CODEPROMO_<NomPrenom>.pdf` — **rendus individuels** (3 p. chacun)
+
+## Avant de rendre
+1. Remplacer `CODEPROMO` par votre code promo réel :
    - dans les **noms de fichiers**,
-   - sur la **page de garde** (variable `CODE` dans `gen_pdf.py`).
-2. Régénérer si besoin :
+   - dans `generate_docs.py` (variable `CODE`).
+2. Régénérer :
    ```bash
    pip install reportlab
-   cd livrables && python3 build_all.py
+   cd livrables && python3 content_docs.py
    ```
-3. Zipper selon la nomenclature :
-   `PE_2526_CODEPROMO_Mougammadou_Rjafellah_Nianghane_Douadi.zip`
+3. Zipper : `PE_2526_CODEPROMO_Mougammadou_Rjafellah_Nianghane_Douadi.zip`.
 
-Contenu conforme au cadre pédagogique (rendu groupe : entreprise/équipe,
-problématique/solution, gestion des coûts M2, organisation/méthodo, solution
-technique ; rendus individuels : perspectives, limites, annexes + analyse
-personnelle).
+Contenu rédigé en paragraphes, conforme au cadre pédagogique (groupe :
+entreprise/équipe, problématique/solution, coûts FinOps M2, organisation/
+planning, solution technique ; individuels : contribution, perspectives,
+limites, annexes + analyse personnelle).
