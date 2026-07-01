@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Rendus individuels détaillés — Adame & Anis (~10-13 pages)."""
-from content_docs import individual, CODE  # noqa
-from generate_docs import obs_diagram, helm_diagram, flow_horizontal, Spacer  # noqa
+from content_docs import individual, CODE, wrap_table  # noqa
+from generate_docs import (obs_diagram, helm_diagram, flow_horizontal, fan_out,  # noqa
+                           network_topology, Spacer, CONTENT_W, cm, BLUE)  # noqa
 
 # ============================================================ ADAME
 individual(
@@ -78,8 +79,17 @@ individual(
      "l'historique du dépôt. Les résultats sont publiés dans l'onglet de sécurité du dépôt, au format "
      "standard SARIF, ce qui permet un suivi structuré."),
     ("P", "Le fait d'exécuter ces analyses à chaque livraison, et non ponctuellement, matérialise le principe "
-     "du « décalage vers la gauche » : les problèmes de sécurité sont détectés au plus tôt, quand ils sont "
-     "les moins coûteux à corriger, plutôt qu'une fois le système en production."),
+     "du « décalage vers la gauche » (<i>shift-left</i>) : les problèmes de sécurité sont détectés au plus "
+     "tôt, quand ils sont les moins coûteux à corriger, plutôt qu'une fois le système en production. Les "
+     "trois contrôles s'insèrent comme autant de barrières successives sur le trajet du code vers la "
+     "production :"),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", flow_horizontal([["Commit", "développeur"], ["Gitleaks", "fuite de secrets"],
+                              ["CodeQL", "analyse du code"], ["Trivy", "images & deps"],
+                              ["Déploiement", "si tout est vert"]], color=BLUE)),
+    ("FLOW", Spacer(1, 4)),
+    ("P", "<i>Portes de sécurité successives : un secret exposé, une faille de code ou une vulnérabilité "
+     "critique d'image bloque la chaîne avant toute mise en production.</i>"),
 
     ("H2", "2.6 Durcissement de l'exécution"),
     ("P", "Au-delà des analyses, j'ai durci l'exécution des conteneurs : ils s'exécutent sans privilèges et "
@@ -92,18 +102,59 @@ individual(
      "propager librement dans le cluster. Ces politiques constituent une défense en profondeur, complémentaire "
      "des autres mesures."),
 
-    ("H1", "3. Choix techniques et justifications"),
-    ("P", "Le triptyque Prometheus / Grafana / Loki s'est imposé comme la référence open source de "
-     "l'observabilité cloud-native, avec une intégration étroite entre métriques et journaux au sein d'une "
-     "interface unique. Cette cohérence réduit la charge cognitive lors d'un diagnostic : l'exploitant "
-     "corrèle en un seul endroit ce que dit une courbe et ce que racontent les journaux au même instant."),
-    ("P", "Pour la sécurité, j'ai retenu des outils gratuits, largement adoptés et complémentaires dans leur "
-     "périmètre : Trivy pour les dépendances et les images, CodeQL pour le code, Gitleaks pour les secrets. "
-     "Cette combinaison couvre l'essentiel de la surface d'exposition d'un projet sans introduire de coût de "
-     "licence, ce qui était impératif dans notre cadre budgétaire."),
-    ("P", "Enfin, le choix d'intégrer ces contrôles directement dans la chaîne d'intégration, plutôt que de "
-     "les laisser à la discrétion de chacun, garantit que la sécurité devient une propriété systématiquement "
-     "vérifiée et non un effort ponctuel dépendant de la vigilance individuelle."),
+    ("H1", "3. Choix technologiques : pourquoi ces technologies plutôt que d'autres"),
+    ("P", "Mon périmètre reposait sur deux familles d'outils : la pile d'observabilité et les analyseurs de "
+     "sécurité. Chacune a été choisie après comparaison explicite avec ses alternatives, en pesant "
+     "systématiquement le service rendu contre l'empreinte en ressources — un critère décisif compte tenu du "
+     "budget."),
+
+    ("H2", "3.1 Journalisation : Loki plutôt qu'Elasticsearch (pile ELK)"),
+    ("FLOW", wrap_table([
+        ["Critère", "Loki (retenu)", "Elasticsearch / ELK"],
+        ["Indexation", "Étiquettes seulement", "Contenu intégral des logs"],
+        ["Mémoire requise", "Modeste (quelques centaines de Mo)", "Plusieurs Go de RAM"],
+        ["Stockage", "Compressé, peu volumineux", "Index volumineux"],
+        ["Intégration Grafana", "Native, source de données directe", "Via Kibana (interface séparée)"],
+        ["Adéquation au budget", "Excellente", "Nécessiterait des nœuds plus gros"],
+    ], [3.4 * cm, 6.2 * cm, CONTENT_W - 9.6 * cm])),
+    ("P", "J'ai retenu <b>Loki</b> plutôt qu'une pile Elasticsearch parce qu'il n'indexe que les étiquettes "
+     "des journaux, là où Elasticsearch indexe l'intégralité du contenu et réclame plusieurs gigaoctets de "
+     "mémoire. Pour un usage identique dans notre contexte — centralisation, recherche, visualisation dans "
+     "Grafana — Loki offre une empreinte très inférieure, ce qui a été déterminant pour tenir sur des nœuds "
+     "modestes. Elasticsearch aurait imposé des machines plus puissantes et donc bien plus coûteuses, sans "
+     "bénéfice tangible à notre échelle."),
+
+    ("H2", "3.2 Métriques : Prometheus plutôt qu'Azure Monitor"),
+    ("FLOW", wrap_table([
+        ["Critère", "Prometheus (retenu)", "Azure Monitor"],
+        ["Modèle", "Open source, standard cloud-native", "Service managé propriétaire"],
+        ["Coût", "Gratuit (auto-hébergé)", "Facturé à l'ingestion / rétention"],
+        ["Portabilité", "Indépendant du cloud", "Lié à Azure"],
+        ["Découverte des cibles", "Automatique (ServiceMonitor)", "Agents / configuration Azure"],
+        ["Intégration Grafana", "Native", "Possible mais moins directe"],
+    ], [3.4 * cm, 5.6 * cm, CONTENT_W - 9.0 * cm])),
+    ("P", "<b>Prometheus</b> s'est imposé comme le standard open source de la métrologie cloud-native, avec "
+     "une découverte automatique des cibles et une intégration native à Grafana. Azure Monitor, bien "
+     "qu'intégré à la plateforme, facture l'ingestion et la rétention des données et enferme la supervision "
+     "dans l'écosystème Azure ; Prometheus est gratuit, portable et parfaitement adapté à Kubernetes. Le "
+     "triptyque Prometheus / Grafana / Loki forme ainsi un ensemble cohérent où l'exploitant corrèle en un "
+     "seul endroit courbes et journaux."),
+
+    ("H2", "3.3 Analyse de sécurité : Trivy, CodeQL et Gitleaks plutôt que des alternatives"),
+    ("FLOW", wrap_table([
+        ["Besoin", "Outil retenu", "Alternative écartée", "Raison du choix"],
+        ["Images & dépendances", "Trivy", "Clair, Snyk", "Gratuit, rapide, couvre IaC + images"],
+        ["Analyse du code", "CodeQL", "SonarQube", "Intégré à GitHub, sans serveur"],
+        ["Fuite de secrets", "Gitleaks", "TruffleHog", "Léger, simple à intégrer en CI"],
+    ], [3.4 * cm, 2.8 * cm, 3.2 * cm, CONTENT_W - 9.4 * cm])),
+    ("P", "Pour la sécurité, j'ai retenu des outils gratuits, largement adoptés et complémentaires : "
+     "<b>Trivy</b> pour les dépendances, les fichiers d'infrastructure et les images, <b>CodeQL</b> pour le "
+     "code et <b>Gitleaks</b> pour les secrets. Snyk et SonarQube, plus riches, imposent respectivement un "
+     "abonnement et un serveur à héberger ; Clair est plus limité que Trivy sur l'infrastructure as code. "
+     "Cette combinaison couvre l'essentiel de la surface d'exposition sans coût de licence ni serveur "
+     "supplémentaire, ce qui était impératif dans notre cadre. Intégrer ces contrôles directement dans la "
+     "chaîne, plutôt que de les laisser à la discrétion de chacun, garantit enfin que la sécurité devient une "
+     "propriété systématiquement vérifiée."),
 
     ("H1", "4. Difficultés rencontrées et solutions apportées"),
     ("P", "La principale difficulté a été de faire tenir une pile de supervision complète sur un cluster "
@@ -252,7 +303,13 @@ individual(
     ("P", "Conformément au cahier des charges, j'ai provisionné une machine virtuelle représentant un site "
      "on-premise. Point essentiel : cette machine est placée dans un <b>réseau totalement séparé</b> de celui "
      "du cluster, sans interconnexion directe, ce qui la fait se comporter comme un site distant joint depuis "
-     "le cloud — à l'image de ce que serait un véritable site relié par Internet ou par un lien sécurisé."),
+     "le cloud — à l'image de ce que serait un véritable site relié par Internet ou par un lien sécurisé. Le "
+     "schéma ci-dessous illustre cette isolation réseau volontaire :"),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", network_topology()),
+    ("FLOW", Spacer(1, 4)),
+    ("P", "<i>Deux réseaux virtuels distincts, sans peering : le cloud héberge le cluster et la base, "
+     "l'on-premise héberge MinIO ; seuls les flux de sauvegarde chiffrée les relient.</i>"),
     ("P", "Ce choix de simulation nous a permis d'illustrer concrètement le principe d'une architecture "
      "hybride sans disposer d'un centre de données physique, tout en gardant la maîtrise des coûts : la "
      "machine peut être désactivée par une simple variable lorsque ce volet n'est pas démontré, ce qui évite "
@@ -280,20 +337,56 @@ individual(
                               ["Perte", "simulée"], ["Restauration", "(Ansible)"],
                               ["Donnée", "récupérée"]])),
 
-    ("H1", "3. Choix techniques et justifications"),
-    ("P", "Helm s'est imposé comme le gestionnaire de paquets de référence pour Kubernetes : il permet de "
-     "décrire un ensemble d'objets de façon paramétrable et versionnée, et de gérer proprement les mises à "
-     "jour comme les retours arrière. Cette capacité de retour arrière est précieuse en exploitation, car "
-     "elle offre un filet de sécurité en cas de déploiement problématique."),
-    ("P", "MinIO a été retenu pour le stockage des sauvegardes car il est léger, compatible avec "
-     "l'écosystème S3 — donc interopérable avec de nombreux outils — et facile à déployer sur une simple "
-     "machine, ce qui convenait parfaitement à notre site on-premise simulé. Sa compatibilité S3 faciliterait "
-     "en outre une migration ultérieure vers un stockage objet cloud si le besoin s'en faisait sentir."),
-    ("P", "Le recours à Ansible pour la configuration de la machine distante, plutôt qu'à des scripts ad hoc, "
-     "garantit que cette configuration est déclarative, rejouable et documentée. La combinaison Terraform "
-     "pour le provisionnement et Ansible pour la configuration est une pratique éprouvée qui sépare "
-     "clairement la création des ressources de leur paramétrage, et rend chaque étape compréhensible et "
-     "maintenable."),
+    ("H1", "3. Choix technologiques : pourquoi ces technologies plutôt que d'autres"),
+    ("P", "Trois décisions ont structuré mon périmètre : le gestionnaire de déploiement Kubernetes, la "
+     "solution de stockage des sauvegardes et l'outil de configuration du site distant. Je les justifie "
+     "ci-dessous par comparaison directe avec leurs alternatives."),
+
+    ("H2", "3.1 Déploiement Kubernetes : Helm plutôt que Kustomize ou kubectl brut"),
+    ("FLOW", wrap_table([
+        ["Critère", "Helm (retenu)", "Kustomize", "kubectl (manifs bruts)"],
+        ["Paramétrage", "Valeurs + templates puissants", "Superpositions (overlays)", "Aucun (statique)"],
+        ["Réutilisabilité", "Chart versionné, portable", "Bonne", "Faible (copier-coller)"],
+        ["Retour arrière", "Natif (helm rollback)", "Manuel", "Manuel"],
+        ["Multi-environnements", "Un chart, N jeux de valeurs", "Overlays par env.", "Fichiers dupliqués"],
+    ], [3.2 * cm, 4.6 * cm, 4.0 * cm, CONTENT_W - 11.8 * cm])),
+    ("P", "<b>Helm</b> s'est imposé comme le gestionnaire de paquets de référence pour Kubernetes : il décrit "
+     "un ensemble d'objets de façon paramétrable et versionnée, et gère proprement mises à jour et retours "
+     "arrière. Kustomize, plus simple, ne propose pas de véritable gestion de version ni de commande de "
+     "retour arrière ; déployer des manifestes bruts avec kubectl aurait imposé de dupliquer les fichiers "
+     "pour chaque environnement. La capacité de <b>rollback</b> natif de Helm, précieuse en exploitation, et "
+     "son modèle « un chart, plusieurs jeux de valeurs » ont été décisifs."),
+
+    ("H2", "3.2 Stockage des sauvegardes : MinIO plutôt qu'Azure Blob Storage"),
+    ("FLOW", wrap_table([
+        ["Critère", "MinIO (retenu)", "Azure Blob Storage"],
+        ["Localisation", "On-premise (site maîtrisé)", "Cloud Azure"],
+        ["Démonstration hybride", "Illustre le cahier des charges", "Resterait dans le cloud"],
+        ["Compatibilité S3", "Native", "API propre (SDK Azure)"],
+        ["Chiffrement au repos", "SSE activé", "Oui (géré par Azure)"],
+        ["Portabilité", "Déployable partout", "Lié à Azure"],
+    ], [3.4 * cm, 5.6 * cm, CONTENT_W - 9.0 * cm])),
+    ("P", "<b>MinIO</b> a été retenu pour le stockage des sauvegardes car le cahier des charges imposait une "
+     "architecture hybride : les données sensibles devaient être répliquées sur un site maîtrisé par "
+     "l'organisation, hors du cloud. Azure Blob Storage aurait maintenu les sauvegardes dans le cloud, "
+     "manquant l'objectif de démonstration hybride. MinIO est léger, compatible avec l'écosystème S3 — donc "
+     "interopérable — et facile à déployer sur une simple machine ; sa compatibilité S3 faciliterait en outre "
+     "une migration ultérieure vers un stockage objet cloud si le besoin s'en faisait sentir."),
+
+    ("H2", "3.3 Configuration du site distant : Ansible plutôt que des scripts ou cloud-init"),
+    ("FLOW", wrap_table([
+        ["Critère", "Ansible (retenu)", "Scripts shell ad hoc", "cloud-init"],
+        ["Idempotence", "Native", "À coder manuellement", "Limitée (au 1er démarrage)"],
+        ["Lisibilité", "Déclaratif (YAML)", "Impératif, dispersé", "Déclaratif mais figé"],
+        ["Rejouabilité", "À tout moment", "Risquée", "Au démarrage seulement"],
+        ["Réutilisation", "Rôles / playbooks", "Faible", "Faible"],
+    ], [3.2 * cm, 4.4 * cm, 4.2 * cm, CONTENT_W - 11.8 * cm])),
+    ("P", "Le recours à <b>Ansible</b> pour configurer la machine distante, plutôt qu'à des scripts ad hoc ou "
+     "à cloud-init, garantit une configuration déclarative, idempotente, rejouable à tout moment et "
+     "documentée. Des scripts shell auraient exigé de coder manuellement l'idempotence ; cloud-init ne "
+     "s'exécute qu'au premier démarrage et n'aurait pas permis de rejouer la configuration ni les opérations "
+     "de sauvegarde. La combinaison Terraform (provisionnement) et Ansible (configuration) est une pratique "
+     "éprouvée qui sépare clairement la création des ressources de leur paramétrage."),
 
     ("H1", "4. Difficultés rencontrées et solutions apportées"),
     ("P", "La difficulté centrale a été d'orchestrer une réplication du cloud vers l'on-premise à la fois "

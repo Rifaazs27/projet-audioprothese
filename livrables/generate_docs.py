@@ -341,6 +341,71 @@ def helm_diagram():
     return d
 
 
+def layered_stack(layers, colors_list=None, box_h=34, gap=7):
+    """Empilement de couches (architecture applicative en couches)."""
+    n = len(layers)
+    if colors_list is None:
+        colors_list = [BLUE, ACCENT, BLUE, GREY, NAVY][:n] + [BLUE] * max(0, n - 5)
+    H = n * box_h + (n - 1) * gap + 6
+    d = Drawing(CONTENT_W, H)
+    y = H - box_h
+    for i, lay in enumerate(layers):
+        _dbox(d, 0, y, CONTENT_W, box_h, lay, colors_list[i], fs=9.3)
+        y -= box_h + gap
+    return d
+
+
+def fan_out(source, targets, lcolor=ACCENT, rcolor=BLUE, box_h=30, gap=12):
+    """Une source (gauche) reliée par des flèches à plusieurs cibles (droite)."""
+    n = len(targets)
+    H = max(n * box_h + (n - 1) * gap + 6, 70)
+    d = Drawing(CONTENT_W, H)
+    lw = CONTENT_W * 0.30
+    rw = CONTENT_W * 0.44
+    rx = CONTENT_W - rw
+    _dbox(d, 0, H / 2 - 28, lw, 56, source, lcolor, fs=9.3)
+    y = H - box_h
+    for t in targets:
+        _dbox(d, rx, y, rw, box_h, t, rcolor, fs=8.8)
+        _arrow(d, lw, H / 2, rx, y + box_h / 2, color=GREY)
+        y -= box_h + gap
+    return d
+
+
+def network_topology():
+    """Deux réseaux isolés : VNet Azure (cloud) et VNet on-premise, sans peering."""
+    W, H = CONTENT_W, 210
+    d = Drawing(W, H)
+    # ------ VNet cloud (gauche)
+    lx, lw = 0, W * 0.52
+    d.add(Rect(lx, 10, lw, H - 30, rx=8, ry=8, fillColor=LIGHT2,
+               strokeColor=BLUE, strokeWidth=1.2))
+    d.add(String(lx + 12, H - 20, "VNet Azure  10.10.0.0/16  —  Cluster AKS",
+                 fontSize=9.5, fillColor=NAVY, fontName="Helvetica-Bold"))
+    _dbox(d, lx + 18, H - 95, lw - 36, 30, "Subnet nœuds AKS  (pods app · ingress)", BLUE, fs=8.2)
+    _dbox(d, lx + 18, H - 140, lw - 36, 30, "PostgreSQL Flexible  (pare-feu · TLS)", GREY, fs=8.2)
+    _dbox(d, lx + 18, 24, lw - 36, 28, "Ingress NGINX — entrée publique unique", NAVY, fs=8.2)
+    # ------ VNet on-premise (droite)
+    rw = W * 0.40
+    rx = W - rw
+    d.add(Rect(rx, 42, rw, H - 92, rx=8, ry=8, fillColor=colors.HexColor("#f3ece2"),
+               strokeColor=ACCENT, strokeWidth=1.2))
+    d.add(String(rx + 12, H - 60, "VNet on-premise  10.20.0.0/16",
+                 fontSize=9.5, fillColor=NAVY, fontName="Helvetica-Bold"))
+    _dbox(d, rx + 16, H - 112, rw - 32, 30, "VM Linux (site distant simulé)", ACCENT, fs=8.2)
+    _dbox(d, rx + 16, H - 157, rw - 32, 30, "MinIO — objet chiffré (SSE)", ACCENT, fs=8.2)
+    # ------ séparation + flux de sauvegarde
+    midx = (lx + lw + rx) / 2
+    d.add(Line(midx, 24, midx, H - 30, strokeColor=GREY, strokeWidth=1,
+               strokeDashArray=[4, 3]))
+    _arrow(d, lx + lw - 18, H - 125, rx + 18, H - 142, color=GREY)
+    d.add(String(midx, H - 118, "backup chiffré", fontSize=7, fillColor=GREY,
+                 textAnchor="middle"))
+    d.add(String(midx, 12, "réseaux isolés — aucun peering", fontSize=7,
+                 fillColor=GREY, textAnchor="middle"))
+    return d
+
+
 # ----------------------------------------------------------------- assemblage
 def footer(canvas, doc):
     canvas.saveState()

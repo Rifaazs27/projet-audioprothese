@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Contenu détaillé des rendus individuels — Zaafir & Elyess (~10-13 pages)."""
-from content_docs import individual, CODE  # noqa
-from generate_docs import flow_vertical, flow_horizontal, Spacer, BLUE  # noqa
+from content_docs import individual, CODE, wrap_table  # noqa
+from generate_docs import (flow_vertical, flow_horizontal, layered_stack,  # noqa
+                           network_topology, fan_out, Spacer, BLUE, CONTENT_W, cm)  # noqa
 
 CICD_STEPS = ["Connexion Azure (identifiants sécurisés)",
               "Terraform apply — provisionnement de l'infra",
@@ -79,6 +80,20 @@ individual(
      "via un chemin unique, ce qui simplifie considérablement le routage en production, où le frontend et le "
      "backend sont exposés derrière le même point d'entrée. J'ai porté attention à ce que l'expérience reste "
      "fluide même en cas d'erreur réseau, en affichant des messages compréhensibles à l'utilisateur."),
+    ("P", "J'ai structuré l'application en couches nettement séparées, chacune n'ayant connaissance que de la "
+     "couche immédiatement inférieure. Cette organisation, illustrée ci-dessous, rend le code lisible, "
+     "testable et évolutif : on peut par exemple faire évoluer la logique d'accès aux données sans toucher "
+     "aux routes HTTP."),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", layered_stack([
+        ["Frontend React (nginx)", "consultation & saisie des patients"],
+        ["Routes HTTP FastAPI", "points d'entrée REST + /healthz /readyz /metrics"],
+        ["Schémas Pydantic", "validation & typage des données entrantes/sortantes"],
+        ["Couche d'accès aux données (SQLAlchemy)", "requêtes et transactions"],
+        ["PostgreSQL Flexible", "stockage relationnel chiffré (TLS)"]])),
+    ("FLOW", Spacer(1, 4)),
+    ("P", "<i>Architecture applicative en couches : chaque niveau isole une responsabilité, du rendu de "
+     "l'interface jusqu'au stockage relationnel.</i>"),
 
     ("H2", "2.3 Conteneurisation et déploiement"),
     ("P", "J'ai conteneurisé les deux composants au moyen d'images Docker construites en plusieurs étapes "
@@ -96,22 +111,74 @@ individual(
     ("FLOW", flow_horizontal([["Utilisateur"], ["Ingress", "NGINX"],
                               ["Frontend /", "Backend"], ["PostgreSQL", "(TLS)"]], color=BLUE)),
 
-    ("H1", "3. Choix techniques et justifications"),
-    ("P", "Le choix de FastAPI s'explique par sa rapidité de mise en œuvre, sa documentation automatique de "
-     "l'API et sa robustesse grâce à la validation typée, autant d'atouts précieux pour un projet à durée "
-     "contrainte. Sa nature asynchrone lui confère par ailleurs de bonnes performances, ce qui est appréciable "
-     "sur des machines volontairement modestes pour des raisons budgétaires."),
-    ("P", "PostgreSQL s'est imposé comme base relationnelle éprouvée, disponible en version entièrement "
-     "managée sur Azure, ce qui nous décharge de son exploitation courante — sauvegardes automatiques, "
-     "application des correctifs, supervision — tout en restant peu coûteux au palier le plus bas. Le modèle "
-     "de données du cabinet, structuré autour de relations claires entre patients, appareils et rendez-vous, "
-     "se prête naturellement à une base relationnelle plutôt qu'à une base documentaire."),
+    ("H1", "3. Choix technologiques : pourquoi ces technologies plutôt que d'autres"),
+    ("P", "Chacune des briques dont j'avais la charge a fait l'objet d'une comparaison explicite avec ses "
+     "alternatives. Je détaille ci-dessous les trois décisions les plus structurantes — l'outil "
+     "d'infrastructure, le framework applicatif et le moteur de base de données — sous forme de tableaux "
+     "comparatifs suivis de leur justification."),
+
+    ("H2", "3.1 Infrastructure as code : Terraform plutôt que Bicep ou Pulumi"),
+    ("FLOW", wrap_table([
+        ["Critère", "Terraform (retenu)", "Bicep / ARM", "Pulumi"],
+        ["Portabilité", "Agnostique (multi-cloud)", "Azure uniquement", "Multi-cloud"],
+        ["Langage", "HCL déclaratif, lisible", "DSL Azure / JSON verbeux", "Langages généraux (TS, Go…)"],
+        ["Gestion de l'état", "État distant mûr et partagé", "Pas d'état (géré par Azure)", "État propriétaire, récent"],
+        ["Écosystème / modules", "Très large, communauté active", "Limité à Azure", "Plus restreint"],
+        ["Adéquation au projet", "Standard du marché DevOps", "Enfermement Azure", "Surdimensionné ici"],
+    ], [3.1 * cm, 4.5 * cm, 4.6 * cm, CONTENT_W - 12.2 * cm])),
+    ("P", "J'ai retenu <b>Terraform</b> parce qu'il est le standard de fait de l'infrastructure as code et "
+     "qu'il reste agnostique du fournisseur : si le cabinet devait un jour migrer une partie de sa plateforme "
+     "vers un autre cloud, la logique de description resterait valable. Bicep, bien qu'élégant et sans état à "
+     "gérer, aurait enfermé le projet dans l'écosystème Azure ; Pulumi, qui permet de décrire l'infrastructure "
+     "dans un langage de programmation classique, apportait une puissance dont nous n'avions pas besoin pour "
+     "un MVP et introduisait une dépendance à un état propriétaire. La lisibilité déclarative du HCL et la "
+     "maturité de la gestion d'état distant ont donc été décisives."),
+
+    ("H2", "3.2 Framework applicatif : FastAPI plutôt que Flask ou Django"),
+    ("FLOW", wrap_table([
+        ["Critère", "FastAPI (retenu)", "Flask", "Django"],
+        ["Validation / typage", "Native via Pydantic", "Manuelle ou extensions", "Forms / DRF"],
+        ["Documentation d'API", "OpenAPI générée seule", "À ajouter manuellement", "DRF, plus lourd"],
+        ["Performances", "Élevées (asynchrone, ASGI)", "Synchrone (WSGI)", "Synchrone par défaut"],
+        ["Poids pour un MVP API", "Léger, ciblé sur l'API", "Léger mais peu structurant", "Lourd (ORM, admin, templates)"],
+    ], [3.4 * cm, 4.4 * cm, 4.2 * cm, CONTENT_W - 12.0 * cm])),
+    ("P", "Le choix de <b>FastAPI</b> s'explique par sa validation typée native, sa documentation OpenAPI "
+     "générée automatiquement et sa nature asynchrone, qui offre de bonnes performances sur des machines "
+     "volontairement modestes. Flask aurait exigé d'assembler manuellement validation et documentation, au "
+     "risque d'une moindre rigueur ; Django, très complet, aurait apporté un ORM, une interface "
+     "d'administration et un moteur de templates dont une API pure n'a pas l'usage, alourdissant inutilement "
+     "l'image conteneur et la surface d'attaque. FastAPI offrait le meilleur rapport entre robustesse et "
+     "sobriété pour notre besoin."),
+
+    ("H2", "3.3 Base de données : PostgreSQL plutôt que MySQL ou MongoDB"),
+    ("FLOW", wrap_table([
+        ["Critère", "PostgreSQL (retenu)", "MySQL", "MongoDB"],
+        ["Modèle de données", "Relationnel riche", "Relationnel", "Documentaire"],
+        ["Adéquation métier", "Idéal (patients ↔ appareils ↔ RDV)", "Convient", "Peu adapté aux relations"],
+        ["Offre managée Azure", "Flexible Server, peu coûteux", "Flexible Server", "Cosmos DB, plus cher"],
+        ["Intégrité", "ACID, contraintes fortes", "ACID", "Cohérence plus souple"],
+    ], [3.4 * cm, 4.6 * cm, 4.0 * cm, CONTENT_W - 12.0 * cm])),
+    ("P", "Les données du cabinet sont fortement relationnelles : un patient possède des appareils et des "
+     "rendez-vous, avec des contraintes d'intégrité qu'une base documentaire comme MongoDB gérerait mal. "
+     "<b>PostgreSQL</b> s'est imposé pour sa richesse relationnelle, son respect strict des propriétés ACID et "
+     "son offre managée peu coûteuse sur Azure (Flexible Server), qui nous décharge des sauvegardes, des "
+     "correctifs et de la supervision de bas niveau. MySQL aurait convenu, mais PostgreSQL offre des types et "
+     "des contraintes plus riches ; MongoDB, orienté documents, aurait compliqué la modélisation de relations "
+     "pourtant naturelles ici, et sa déclinaison managée Azure (Cosmos DB) est nettement plus onéreuse."),
+
+    ("H2", "3.4 Hébergement de la base et conteneurs : arbitrages de sécurité"),
     ("P", "Concernant l'hébergement de la base, nous avons retenu un accès public restreint par un pare-feu "
      "n'autorisant que les ressources internes à Azure, avec chiffrement TLS obligatoire. C'est un compromis "
      "assumé : un réseau entièrement privé aurait été plus sûr, mais aurait ajouté une complexité — réseau "
      "virtuel dédié, résolution DNS privée, points de terminaison privés — difficilement justifiable pour un "
      "MVP au budget serré. J'ai documenté ce compromis afin qu'il soit clairement identifié comme un axe "
-     "d'amélioration prioritaire pour une éventuelle mise en production réelle."),
+     "d'amélioration prioritaire pour une éventuelle mise en production réelle. Le schéma ci-dessous situe la "
+     "base au sein du réseau cloud, face au site on-premise volontairement isolé :"),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", network_topology()),
+    ("FLOW", Spacer(1, 4)),
+    ("P", "<i>Topologie réseau : le VNet cloud héberge le cluster et la base ; le site on-premise réside dans "
+     "un réseau totalement séparé, joint uniquement pour la réplication chiffrée des sauvegardes.</i>"),
     ("P", "Enfin, le choix d'images Docker multi-stage et non privilégiées relève à la fois de la sécurité et "
      "de la sobriété : des images plus petites consomment moins de stockage dans le registre, se transfèrent "
      "plus vite et réduisent la surface d'attaque, autant de bénéfices alignés avec les objectifs "
@@ -266,7 +333,17 @@ individual(
      "vérifications rapides — tests, analyses — s'exécutent à chaque proposition de modification, tandis que "
      "les opérations lourdes et coûteuses — provisionnement, déploiement — ne sont déclenchées que de manière "
      "maîtrisée, sur la branche principale ou manuellement. Ce découpage limite aussi la consommation de "
-     "minutes d'exécution, ce qui participe indirectement à la sobriété du projet."),
+     "minutes d'exécution, ce qui participe indirectement à la sobriété du projet. Le schéma ci-dessous "
+     "montre comment chaque type d'événement déclenche le workflow approprié :"),
+    ("FLOW", Spacer(1, 4)),
+    ("FLOW", fan_out(["Événements", "GitHub"],
+                     [["Pull Request", "→ Intégration (tests, lint)"],
+                      ["Push sur main", "→ Sécurité + Déploiement"],
+                      ["Déclenchement manuel", "→ Déploiement / Destruction"],
+                      ["Planification (cron)", "→ Sauvegarde quotidienne"]])),
+    ("FLOW", Spacer(1, 4)),
+    ("P", "<i>Chaque événement (proposition de modification, envoi sur la branche principale, action manuelle "
+     "ou planification) déclenche automatiquement le workflow adapté, sans intervention humaine.</i>"),
 
     ("H2", "2.2 Automatisation du provisionnement et de l'état"),
     ("P", "J'ai automatisé la préparation de l'état distant de Terraform : le workflow crée si nécessaire le "
@@ -305,21 +382,48 @@ individual(
      "livraison bloquée avant réinstallation. Grâce à ces garde-fous, la chaîne est devenue "
      "<b>auto-réparante</b> et se remet d'elle-même d'un incident, sans qu'un opérateur ait à intervenir."),
 
-    ("H1", "3. Choix techniques et justifications"),
-    ("P", "Le cahier des charges évoquait GitLab CI ; nous avons retenu GitHub Actions, le dépôt étant "
-     "hébergé sur GitHub. Le principe reste rigoureusement identique — build, test, analyse, déploiement "
-     "orchestré — et GitHub Actions offre une intégration native avec le dépôt, un large catalogue d'actions "
-     "réutilisables et une gestion des secrets intégrée. Ce choix a donc été pragmatique et sans perte "
-     "fonctionnelle par rapport à l'outil cité en exemple."),
-    ("P", "J'ai privilégié un déploiement piloté par la chaîne, selon une approche « push », plutôt qu'un "
-     "outil de déploiement continu dédié, afin de rester simple et économe pour un MVP. Introduire un "
-     "opérateur GitOps aurait ajouté un composant permanent à héberger sur le cluster, difficilement "
-     "justifiable au regard du budget ; j'ai néanmoins identifié cette évolution comme la suite logique une "
-     "fois le projet stabilisé."),
-    ("P", "Le choix de séparer les workflows plutôt que de tout concentrer dans un pipeline unique répond à "
-     "un principe de responsabilité claire : chaque workflow a un objectif précis, se déclenche sur les bons "
-     "événements et peut être compris et maintenu indépendamment des autres, ce qui facilite le travail à "
-     "plusieurs et la reprise du projet par un tiers."),
+    ("H1", "3. Choix technologiques : pourquoi ces technologies plutôt que d'autres"),
+    ("P", "Deux décisions ont structuré mon périmètre : le choix de la plateforme d'intégration et de "
+     "déploiement continus, et le modèle de déploiement (piloté par la chaîne ou par un opérateur GitOps). "
+     "Je les justifie ci-dessous par comparaison directe avec leurs alternatives."),
+
+    ("H2", "3.1 Plateforme CI/CD : GitHub Actions plutôt que GitLab CI ou Jenkins"),
+    ("FLOW", wrap_table([
+        ["Critère", "GitHub Actions (retenu)", "GitLab CI", "Jenkins"],
+        ["Intégration au dépôt", "Native (dépôt sur GitHub)", "Native si dépôt GitLab", "Externe, à connecter"],
+        ["Hébergement", "Runners gérés, sans serveur", "Runners gérés ou auto-hébergés", "Serveur à installer et maintenir"],
+        ["Catalogue réutilisable", "Très large (Marketplace)", "Templates", "Plugins (maintenance lourde)"],
+        ["Gestion des secrets", "Intégrée et chiffrée", "Intégrée", "Via plugins / credentials"],
+        ["Coût pour le projet", "Inclus, minutes gratuites", "Inclus si GitLab", "Coût d'un serveur permanent"],
+    ], [3.1 * cm, 4.6 * cm, 4.5 * cm, CONTENT_W - 12.2 * cm])),
+    ("P", "Le cahier des charges évoquait GitLab CI ; le dépôt étant hébergé sur GitHub, j'ai retenu "
+     "<b>GitHub Actions</b>, dont le principe est rigoureusement identique — build, test, analyse, déploiement "
+     "orchestré. Sa proximité avec le dépôt, son vaste catalogue d'actions réutilisables et sa gestion "
+     "intégrée des secrets en font l'outil le plus naturel et le plus économe ici. Jenkins, très puissant, "
+     "aurait imposé d'héberger et de maintenir en permanence un serveur dédié — un coût récurrent et une "
+     "charge d'exploitation incompatibles avec un budget de 85 dollars. Le choix a donc été pragmatique et "
+     "sans perte fonctionnelle par rapport à l'outil cité en exemple."),
+
+    ("H2", "3.2 Modèle de déploiement : approche « push » plutôt que GitOps"),
+    ("FLOW", wrap_table([
+        ["Critère", "Push par la chaîne (retenu)", "GitOps (ArgoCD / Flux)"],
+        ["Composant sur le cluster", "Aucun (la CI pousse)", "Opérateur permanent à héberger"],
+        ["Simplicité pour un MVP", "Élevée, immédiate", "Plus complexe à mettre en place"],
+        ["Coût / ressources", "Nul en plus", "Consomme CPU/RAM en continu"],
+        ["Traçabilité de l'état", "Journaux de la chaîne", "État réconcilié en continu (supérieur)"],
+        ["Retour arrière", "Re-déploiement d'une version", "Réconciliation automatique"],
+    ], [3.6 * cm, 6.0 * cm, CONTENT_W - 9.6 * cm])),
+    ("P", "J'ai privilégié un déploiement piloté par la chaîne, selon une approche « <b>push</b> », plutôt "
+     "qu'un opérateur GitOps, afin de rester simple et économe. Un opérateur tel qu'ArgoCD ou Flux aurait "
+     "introduit un composant permanent à héberger sur le cluster, consommant des ressources en continu — "
+     "difficilement justifiable au regard du budget. Le GitOps offre une traçabilité et une réconciliation "
+     "d'état supérieures, que j'ai clairement identifiées comme la suite logique une fois le projet "
+     "stabilisé et le budget desserré ; pour un MVP, l'approche push apportait l'essentiel du bénéfice sans "
+     "le surcoût."),
+    ("P", "Enfin, le choix de séparer les workflows plutôt que de tout concentrer dans un pipeline unique "
+     "répond à un principe de responsabilité claire : chaque workflow a un objectif précis, se déclenche sur "
+     "les bons événements et peut être compris et maintenu indépendamment des autres, ce qui facilite le "
+     "travail à plusieurs et la reprise du projet par un tiers."),
 
     ("H1", "4. Difficultés rencontrées et solutions apportées"),
     ("P", "J'ai été confronté à une série d'échecs typiques d'une première mise en production : une action "
