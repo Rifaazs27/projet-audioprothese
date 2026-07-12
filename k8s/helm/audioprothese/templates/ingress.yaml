@@ -1,0 +1,69 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: audioprothese
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "audioprothese.labels" . | nindent 4 }}
+  annotations:
+    {{- if and .Values.ingress.tls.enabled .Values.ingress.host }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.tls.clusterIssuer }}
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    {{- else }}
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if and .Values.ingress.tls.enabled .Values.ingress.host }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: audioprothese-tls
+  {{- end }}
+  rules:
+    # host vide => règle sans hôte : matche l'IP publique de l'Ingress.
+    -
+      {{- if .Values.ingress.host }}
+      host: {{ .Values.ingress.host }}
+      {{- end }}
+      http:
+        paths:
+          # L'API est routée en priorité sur /api et /metrics.
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /metrics
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /healthz
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /readyz
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          # Tout le reste va au frontend (SPA).
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+{{- end }}

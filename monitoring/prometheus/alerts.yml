@@ -1,0 +1,35 @@
+groups:
+  - name: audioprothese.rules
+    rules:
+      # L'API ne répond plus au scraping depuis 1 minute.
+      - alert: BackendDown
+        expr: up{job="audioprothese-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend Audioprothèse injoignable"
+          description: "Prometheus ne parvient plus à scraper le backend depuis 1 minute."
+
+      # Taux d'erreurs 5xx supérieur à 5% sur 5 minutes.
+      - alert: TauxErreur5xxEleve
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Taux d'erreurs 5xx élevé"
+          description: "Plus de 5% des requêtes renvoient une erreur serveur."
+
+      # Latence p95 dégradée.
+      - alert: LatenceElevee
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latence p95 > 1s"
+          description: "La latence au 95e percentile dépasse 1 seconde."

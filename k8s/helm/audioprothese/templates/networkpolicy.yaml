@@ -1,0 +1,62 @@
+{{- if .Values.networkPolicy.enabled }}
+# Cloisonnement réseau (defense-in-depth) :
+#  - le backend n'accepte le trafic que de l'ingress-nginx et du frontend ;
+#  - par défaut, tout le reste est refusé dans le namespace.
+# Nécessite un CNI qui applique les NetworkPolicy (Azure CNI / Calico).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      component: backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              component: frontend
+        # Autorise Prometheus à scraper /metrics.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      component: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: {{ .Values.frontend.port }}
+{{- end }}

@@ -1,0 +1,64 @@
+# Valeurs par défaut. La CI surcharge le registre ACR, le tag d'image et la
+# chaîne de connexion (databaseUrl) au moment du déploiement.
+namespace: audioprothese
+
+image:
+  registry: ""          # ex : acraudioprothesexxxxx.azurecr.io
+  backendRepository: audioprothese-backend
+  frontendRepository: audioprothese-frontend
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Chaîne de connexion PostgreSQL. Injectée par la CI via --set-string ;
+# Helm crée alors un Secret Kubernetes (templates/secret.yaml).
+databaseUrl: ""
+
+backend:
+  replicas: 1
+  port: 8000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  databaseUrlSecretName: audioprothese-db
+  databaseUrlSecretKey: database-url
+
+frontend:
+  replicas: 1
+  port: 8080
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  # host vide = l'application répond sur l'IP publique de l'Ingress (pas
+  # besoin de DNS pour le MVP). Renseigner un domaine pour activer TLS.
+  host: ""
+  tls:
+    enabled: false
+    clusterIssuer: letsencrypt-prod
+
+# Autoscaling horizontal léger (désactivable).
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 75
+
+# NetworkPolicies : nécessitent un CNI qui les applique (Azure CNI/Calico).
+# Désactivées par défaut car le MVP tourne en kubenet (cf. docs).
+networkPolicy:
+  enabled: false
+
+# ServiceMonitor pour kube-prometheus-stack (si le monitoring est installé).
+serviceMonitor:
+  enabled: false

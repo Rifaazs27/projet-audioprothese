@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "audioprothese.labels" . | nindent 4 }}
+    component: backend
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.backend.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      component: backend
+  template:
+    metadata:
+      labels:
+        {{- include "audioprothese.labels" . | nindent 8 }}
+        component: backend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backend
+          image: {{ include "audioprothese.backendImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.backend.port }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.databaseUrlSecretName }}
+                  key: {{ .Values.backend.databaseUrlSecretKey }}
+            - name: CORS_ORIGINS
+              # Le frontend est servi derrière le même Ingress ; "*" suffit
+              # pour le MVP (à restreindre à l'hôte réel en production).
+              value: "*"
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: {{ .Values.backend.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.backend.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "audioprothese.labels" . | nindent 4 }}
+    component: backend
+spec:
+  selector:
+    component: backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: {{ .Values.backend.port }}

@@ -1,0 +1,8 @@
+# Exemple d'inventaire. En CI, ce fichier est généré automatiquement à partir
+# des sorties Terraform (IP publique + clé SSH de la VM on-prem).
+[onprem]
+vm ansible_host=REMPLACER_PAR_IP_PUBLIQUE
+
+[onprem:vars]
+ansible_user=azureuser
+ansible_ssh_private_key_file=./onprem_id_rsa

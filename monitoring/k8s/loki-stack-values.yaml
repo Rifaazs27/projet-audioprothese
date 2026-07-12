@@ -1,0 +1,25 @@
+# Valeurs Helm pour Loki (logs) en mode monolithique léger + Promtail.
+# Alternative économe à la stack ELK (cf. docs/monitoring.md).
+#
+# Installation :
+#   helm repo add grafana https://grafana.github.io/helm-charts
+#   helm install loki grafana/loki-stack -n monitoring \
+#     -f monitoring/k8s/loki-stack-values.yaml
+
+loki:
+  isDefault: false
+  persistence:
+    enabled: true
+    size: 5Gi          # stockage volontairement réduit (FinOps)
+  config:
+    limits_config:
+      retention_period: 72h   # 3 jours de rétention
+
+promtail:
+  enabled: true
+  # Promtail collecte les logs JSON de tous les pods et les pousse vers Loki.
+
+grafana:
+  enabled: false        # Grafana est déjà fourni par kube-prometheus-stack
+prometheus:
+  enabled: false
