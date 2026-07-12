@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend — lint & tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: app/backend/requirements-dev.txt
+      - name: Installer les dépendances
+        run: pip install -r requirements-dev.txt
+      - name: Lint (ruff)
+        run: ruff check .
+      - name: Tests (pytest)
+        run: pytest
+
+  frontend:
+    name: Frontend — build & tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/frontend/package-lock.json
+      - run: npm install
+      - name: Tests (vitest)
+        run: npm run test
+      - name: Build
+        run: npm run build
+
+  helm-lint:
+    name: Helm — lint & template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - run: helm lint k8s/helm/audioprothese
+      - name: Rendu des manifests (sans hôte)
+        run: |
+          helm template audioprothese k8s/helm/audioprothese \
+            --set image.registry=acr.example.io \
+            --set-string databaseUrl='postgresql+psycopg://u:p@h:5432/db'
+      - name: Rendu des manifests (avec hôte + TLS + NetworkPolicy)
+        run: |
+          helm template audioprothese k8s/helm/audioprothese \
+            --set image.registry=acr.example.io \
+            --set-string databaseUrl='postgresql+psycopg://u:p@h:5432/db' \
+            --set ingress.host=audio.example.com \
+            --set ingress.tls.enabled=true \
+            --set networkPolicy.enabled=true \
+            --set serviceMonitor.enabled=true
+
+  terraform-validate:
+    name: Terraform — fmt & validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    # Valeurs factices : validate ne contacte pas Azure mais le provider
+    # azurerm v4 exige que subscription_id soit défini.
+    env:
+      ARM_SUBSCRIPTION_ID: "00000000-0000-0000-0000-000000000000"
+      ARM_TENANT_ID: "00000000-0000-0000-0000-000000000000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+
+  ansible-lint:
+    name: Ansible — syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ansible-core
+      - name: Installer la collection community.docker (utilisée par minio.yml)
+        run: ansible-galaxy collection install community.docker
+      - name: Vérifier la syntaxe des playbooks
+        working-directory: ansible
+        run: |
+          cp inventory.ini.example inventory.ini
+          sed -i 's/REMPLACER_PAR_IP_PUBLIQUE/127.0.0.1/' inventory.ini
+          for p in playbooks/*.yml; do
+            ansible-playbook --syntax-check "$p" \
+              -e minio_root_user=x -e minio_root_password=x -e minio_kms_key=x \
+              -e database_dsn=x
+          done
