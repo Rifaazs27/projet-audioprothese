@@ -14,6 +14,7 @@ automatisée, sécurisée et économe.
 
 ## 2. La solution en un coup d'œil
 
+
 ```
 Développeur ──push main──▶ GitHub Actions (CI + déploiement automatisé)
                              ├─ lint + tests (back & front)
