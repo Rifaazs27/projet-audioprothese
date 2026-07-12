@@ -1,0 +1,320 @@
+name: Deploy (Azure tout-en-un)
+
+# Pipeline 100% automatisé : se connecte à Azure, provisionne l'infrastructure
+# (Terraform), construit et pousse les images, puis déploie l'application sur
+# AKS (Helm). Aucune étape manuelle.
+#
+# Déclenchement :
+#   - push sur main  -> provisionne + déploie
+#   - manuel (Actions -> Run workflow) -> choix de l'action : deploy / destroy
+#
+# Secrets GitHub requis (Settings -> Secrets and variables -> Actions) :
+#   AZURE_USERNAME, AZURE_PASSWORD, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action à exécuter"
+        type: choice
+        options: [deploy, destroy]
+        default: deploy
+
+concurrency:
+  group: azure-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TF_ROOT: infra/terraform
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  # Nommage du Storage Account de l'état Terraform (créé automatiquement).
+  TFSTATE_RG: rg-tfstate-audioprothese
+  TFSTATE_CONTAINER: tfstate
+  TFSTATE_KEY: mvp.tfstate
+  LOCATION: polandcentral
+
+jobs:
+  pipeline:
+    name: Provision & déploiement
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Azure CLI
+        run: |
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+      - name: Connexion Azure (utilisateur / mot de passe)
+        run: |
+          az login -u "${{ secrets.AZURE_USERNAME }}" -p "${{ secrets.AZURE_PASSWORD }}" \
+            --tenant "${{ secrets.AZURE_TENANT_ID }}"
+          az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+
+      - name: Préparer le backend d'état Terraform (idempotent)
+        id: tfstate
+        run: |
+          set -euo pipefail
+          SA="sttf$(echo -n "${{ secrets.AZURE_SUBSCRIPTION_ID }}" | md5sum | cut -c1-12)"
+          echo "Storage account d'état : $SA"
+          az group create -n "$TFSTATE_RG" -l "$LOCATION" -o none
+          az storage account create -n "$SA" -g "$TFSTATE_RG" -l "$LOCATION" \
+            --sku Standard_LRS --encryption-services blob -o none
+          KEY=$(az storage account keys list -g "$TFSTATE_RG" -n "$SA" --query '[0].value' -o tsv)
+          az storage container create -n "$TFSTATE_CONTAINER" --account-name "$SA" \
+            --account-key "$KEY" -o none
+          echo "sa=$SA" >> "$GITHUB_OUTPUT"
+          echo "ARM_ACCESS_KEY=$KEY" >> "$GITHUB_ENV"
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.3"
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_ROOT }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=$TFSTATE_RG" \
+            -backend-config="storage_account_name=${{ steps.tfstate.outputs.sa }}" \
+            -backend-config="container_name=$TFSTATE_CONTAINER" \
+            -backend-config="key=$TFSTATE_KEY"
+
+      - name: Libérer un verrou d'état résiduel (lease)
+        # Un run précédent interrompu peut laisser le blob d'état verrouillé.
+        # La 'concurrency' garantit qu'aucun autre deploy ne tourne en même
+        # temps : on peut donc casser sans risque un lease orphelin.
+        run: |
+          az storage blob lease break \
+            --container-name "$TFSTATE_CONTAINER" \
+            --blob-name "$TFSTATE_KEY" \
+            --account-name "${{ steps.tfstate.outputs.sa }}" \
+            --account-key "$ARM_ACCESS_KEY" 2>/dev/null \
+            && echo "Verrou résiduel libéré." || echo "Aucun verrou à libérer."
+
+      # --- Destruction (FinOps) ---
+      - name: Terraform destroy
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+        working-directory: ${{ env.TF_ROOT }}
+        run: |
+          terraform destroy -auto-approve \
+            -var 'budget_alert_emails=["${{ secrets.BUDGET_EMAIL }}"]'
+
+      - name: Fin (destroy)
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+        run: echo "Infrastructure détruite. Facturation stoppée." && exit 0
+
+      # --- Provisionnement ---
+      - name: Terraform apply
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        working-directory: ${{ env.TF_ROOT }}
+        run: |
+          terraform apply -auto-approve \
+            -var 'budget_alert_emails=["${{ secrets.BUDGET_EMAIL }}"]'
+
+      - name: Récupérer les sorties Terraform
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        id: tf
+        working-directory: ${{ env.TF_ROOT }}
+        run: |
+          echo "rg=$(terraform output -raw resource_group)" >> "$GITHUB_OUTPUT"
+          echo "aks=$(terraform output -raw aks_name)" >> "$GITHUB_OUTPUT"
+          echo "acr_name=$(terraform output -raw acr_name)" >> "$GITHUB_OUTPUT"
+          echo "acr_server=$(terraform output -raw acr_login_server)" >> "$GITHUB_OUTPUT"
+          # La chaîne de connexion (sensible) est masquée dans les logs.
+          DBURL=$(terraform output -raw database_url)
+          echo "::add-mask::$DBURL"
+          echo "DBURL=$DBURL" >> "$GITHUB_ENV"
+
+      - name: Build & push des images vers ACR
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          az acr login --name "${{ steps.tf.outputs.acr_name }}"
+          SERVER="${{ steps.tf.outputs.acr_server }}"
+          TAG="${GITHUB_SHA::12}"
+          docker build -t "$SERVER/audioprothese-backend:$TAG" app/backend
+          docker build -t "$SERVER/audioprothese-frontend:$TAG" app/frontend
+          docker push "$SERVER/audioprothese-backend:$TAG"
+          docker push "$SERVER/audioprothese-frontend:$TAG"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Scan de l'image backend (Trivy, bloquant si CRITICAL)
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.tf.outputs.acr_server }}/audioprothese-backend:${{ env.TAG }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL
+          ignore-unfixed: true
+
+      - name: Configurer kubectl + Helm
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          az aks install-cli 2>/dev/null || true
+          az aks get-credentials -g "${{ steps.tf.outputs.rg }}" \
+            -n "${{ steps.tf.outputs.aks }}" --overwrite-existing
+          curl -fsSL -o /tmp/helm.tar.gz https://get.helm.sh/helm-v3.16.3-linux-amd64.tar.gz \
+            || curl -fsSL -o /tmp/helm.tar.gz https://get.helm.sh/helm-v3.16.3-linux-amd64.tar.gz
+          tar -xzf /tmp/helm.tar.gz -C /tmp
+          sudo mv /tmp/linux-amd64/helm /usr/local/bin/helm
+          helm version
+
+      - name: Installer l'Ingress NGINX
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          helm repo update
+          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+            -n ingress-nginx --create-namespace \
+            --set controller.replicaCount=1 --wait --timeout 5m
+          # Attend l'IP publique de l'Ingress (réutilisée pour exposer Grafana).
+          for i in $(seq 1 30); do
+            INGRESS_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            [ -n "$INGRESS_IP" ] && break
+            sleep 10
+          done
+          echo "INGRESS_IP=$INGRESS_IP" >> "$GITHUB_ENV"
+          echo "IP Ingress : $INGRESS_IP"
+
+      - name: Installer le monitoring (Prometheus, Grafana, Loki, Alertmanager)
+        # AVANT l'app : installe les CRDs (dont ServiceMonitor) nécessaires
+        # au chart applicatif.
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          set -euo pipefail
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add grafana https://grafana.github.io/helm-charts
+          helm repo update
+          # Le label de namespace permet aux NetworkPolicies de cibler "monitoring".
+          kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+          kubectl label namespace monitoring kubernetes.io/metadata.name=monitoring --overwrite
+
+          # Auto-réparation : nettoie une release bloquée (pending-install/upgrade)
+          # laissée par un run interrompu, sinon "another operation in progress".
+          for rel in kube-prometheus-stack loki; do
+            if helm status "$rel" -n monitoring >/dev/null 2>&1; then
+              ST=$(helm status "$rel" -n monitoring -o json | jq -r '.info.status')
+              echo "Release $rel : état $ST"
+              if [ "$ST" != "deployed" ]; then
+                echo "-> nettoyage de $rel"
+                helm uninstall "$rel" -n monitoring --wait || true
+              fi
+            fi
+          done
+
+          # Branche le webhook Slack/Teams uniquement s'il est défini.
+          SLACK_OPT=""
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            SLACK_OPT="--set-string alertmanager.config.global.slack_api_url=${{ secrets.SLACK_WEBHOOK_URL }}"
+            echo "Webhook Slack/Teams branché sur Alertmanager."
+          fi
+
+          # Grafana exposé via l'Ingress NGINX (hôte nip.io basé sur l'IP de
+          # l'Ingress) -> aucune IP publique supplémentaire à provisionner.
+          GRAFANA_HOST="grafana.${INGRESS_IP}.nip.io"
+          echo "GRAFANA_HOST=$GRAFANA_HOST" >> "$GITHUB_ENV"
+
+          # Prometheus + Grafana + Alertmanager.
+          # Sans --wait : Helm applique les manifests (CRDs incluses) et rend la
+          # main tout de suite ; les pods convergent ensuite seuls en arrière-plan.
+          helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+            -n monitoring --create-namespace \
+            -f monitoring/k8s/kube-prometheus-stack-values.yaml \
+            --set grafana.ingress.hosts[0]="$GRAFANA_HOST" \
+            --set "grafana.grafana\.ini.server.root_url=http://$GRAFANA_HOST" \
+            $SLACK_OPT
+          # Petite attente que la CRD ServiceMonitor soit bien enregistrée
+          # (requise par le chart applicatif déployé juste après).
+          kubectl wait --for=condition=Established --timeout=120s \
+            crd/servicemonitors.monitoring.coreos.com
+
+          # Loki + Promtail (logs).
+          helm upgrade --install loki grafana/loki-stack \
+            -n monitoring -f monitoring/k8s/loki-stack-values.yaml
+
+          # Import automatique du dashboard applicatif dans Grafana.
+          kubectl create configmap audioprothese-dashboard -n monitoring \
+            --from-file=audioprothese-overview.json=monitoring/grafana/dashboards/audioprothese-overview.json \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl label configmap audioprothese-dashboard -n monitoring grafana_dashboard=1 --overwrite
+
+      - name: Déploiement de l'application (Helm)
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          set -euo pipefail
+          # Auto-réparation : une release laissée en pending-install/failed par
+          # un run interrompu casse l'upgrade. On la désinstalle d'abord.
+          if helm status audioprothese -n audioprothese >/dev/null 2>&1; then
+            ST=$(helm status audioprothese -n audioprothese -o json | jq -r '.info.status')
+            echo "État de la release existante : $ST"
+            if [ "$ST" != "deployed" ]; then
+              echo "Release dans un état non sain -> désinstallation."
+              helm uninstall audioprothese -n audioprothese --wait || true
+            fi
+          fi
+          helm upgrade --install audioprothese k8s/helm/audioprothese \
+            --namespace audioprothese --create-namespace \
+            --set image.registry="${{ steps.tf.outputs.acr_server }}" \
+            --set image.tag="$TAG" \
+            --set-string databaseUrl="$DBURL" \
+            --set serviceMonitor.enabled=true \
+            --wait --timeout 5m
+
+      - name: Configurer MinIO sur la VM on-prem (Ansible)
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        working-directory: ansible
+        run: |
+          set -euo pipefail
+          ONPREM=$(terraform -chdir=../$TF_ROOT output -raw onprem_enabled)
+          if [ "$ONPREM" != "true" ]; then
+            echo "On-prem désactivé — étape ignorée."; exit 0
+          fi
+          pip install --quiet ansible-core
+          ansible-galaxy collection install community.docker
+          # Clé SSH + inventaire générés depuis Terraform.
+          terraform -chdir=../$TF_ROOT output -raw onprem_ssh_private_key > onprem_id_rsa
+          chmod 600 onprem_id_rsa
+          IP=$(terraform -chdir=../$TF_ROOT output -raw onprem_public_ip)
+          USER=$(terraform -chdir=../$TF_ROOT output -raw onprem_admin_user)
+          printf '[onprem]\nvm ansible_host=%s\n[onprem:vars]\nansible_user=%s\nansible_ssh_private_key_file=./onprem_id_rsa\n' "$IP" "$USER" > inventory.ini
+          MINIO_USER=$(terraform -chdir=../$TF_ROOT output -raw minio_root_user)
+          MINIO_PASS=$(terraform -chdir=../$TF_ROOT output -raw minio_root_password)
+          MINIO_KMS=$(terraform -chdir=../$TF_ROOT output -raw minio_kms_key)
+          echo "::add-mask::$MINIO_PASS"; echo "::add-mask::$MINIO_KMS"
+          # Laisse à la VM le temps de finir son démarrage (SSH prêt).
+          for i in $(seq 1 20); do ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+            -i onprem_id_rsa "$USER@$IP" true 2>/dev/null && break || sleep 15; done
+          ansible-playbook playbooks/minio.yml \
+            -e minio_root_user="$MINIO_USER" \
+            -e minio_root_password="$MINIO_PASS" \
+            -e minio_kms_key="$MINIO_KMS"
+          rm -f onprem_id_rsa
+
+      - name: Afficher l'URL d'accès
+        if: github.event_name == 'push' || inputs.action == 'deploy'
+        run: |
+          echo "Pods :"
+          kubectl get pods -n audioprothese
+          echo "En attente de l'IP publique de l'Ingress..."
+          for i in $(seq 1 30); do
+            IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            [ -n "$IP" ] && break
+            sleep 10
+          done
+          MINIO=$(terraform -chdir=$TF_ROOT output -raw minio_endpoint 2>/dev/null || true)
+          echo "==============================================="
+          echo " Application accessible sur : http://$IP/"
+          echo " API (Swagger)            : http://$IP/api/docs"
+          [ -n "$MINIO" ] && echo " MinIO (on-prem)          : $MINIO  (console :9001)"
+          echo " Grafana                  : http://grafana.$IP.nip.io/  (admin / AudioGrafana2026!)"
+          echo "==============================================="
