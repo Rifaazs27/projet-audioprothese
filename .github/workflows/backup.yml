@@ -1,0 +1,86 @@
+name: Backup (PostgreSQL -> MinIO on-prem)
+
+# Sauvegarde quotidienne de la base vers MinIO (PRA), via Ansible.
+# Peut aussi être lancée manuellement.
+on:
+  schedule:
+    - cron: "0 2 * * *" # tous les jours à 02:00 UTC
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "backup ou restore"
+        type: choice
+        options: [backup, restore]
+        default: backup
+
+concurrency:
+  group: azure-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TF_ROOT: infra/terraform
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  TFSTATE_RG: rg-tfstate-audioprothese
+  TFSTATE_CONTAINER: tfstate
+  TFSTATE_KEY: mvp.tfstate
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Azure CLI
+        run: curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+      - name: Connexion Azure
+        run: |
+          az login -u "${{ secrets.AZURE_USERNAME }}" -p "${{ secrets.AZURE_PASSWORD }}" \
+            --tenant "${{ secrets.AZURE_TENANT_ID }}"
+          az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+
+      - name: Clé d'accès au backend d'état
+        id: tfstate
+        run: |
+          SA="sttf$(echo -n "${{ secrets.AZURE_SUBSCRIPTION_ID }}" | md5sum | cut -c1-12)"
+          KEY=$(az storage account keys list -g "$TFSTATE_RG" -n "$SA" --query '[0].value' -o tsv)
+          echo "sa=$SA" >> "$GITHUB_OUTPUT"
+          echo "ARM_ACCESS_KEY=$KEY" >> "$GITHUB_ENV"
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.3"
+
+      - name: Terraform init (lecture des sorties)
+        working-directory: ${{ env.TF_ROOT }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=$TFSTATE_RG" \
+            -backend-config="storage_account_name=${{ steps.tfstate.outputs.sa }}" \
+            -backend-config="container_name=$TFSTATE_CONTAINER" \
+            -backend-config="key=$TFSTATE_KEY"
+
+      - name: Exécuter le playbook (backup/restore)
+        working-directory: ansible
+        run: |
+          set -euo pipefail
+          MODE="${{ github.event.inputs.mode || 'backup' }}"
+          pip install --quiet ansible-core
+          terraform -chdir=../$TF_ROOT output -raw onprem_ssh_private_key > onprem_id_rsa
+          chmod 600 onprem_id_rsa
+          IP=$(terraform -chdir=../$TF_ROOT output -raw onprem_public_ip)
+          USER=$(terraform -chdir=../$TF_ROOT output -raw onprem_admin_user)
+          printf '[onprem]\nvm ansible_host=%s\n[onprem:vars]\nansible_user=%s\nansible_ssh_private_key_file=./onprem_id_rsa\n' "$IP" "$USER" > inventory.ini
+          DSN=$(terraform -chdir=../$TF_ROOT output -raw database_dsn_psql)
+          MINIO_USER=$(terraform -chdir=../$TF_ROOT output -raw minio_root_user)
+          MINIO_PASS=$(terraform -chdir=../$TF_ROOT output -raw minio_root_password)
+          echo "::add-mask::$DSN"; echo "::add-mask::$MINIO_PASS"
+          ansible-playbook "playbooks/${MODE}.yml" \
+            -e database_dsn="$DSN" \
+            -e minio_root_user="$MINIO_USER" \
+            -e minio_root_password="$MINIO_PASS"
+          rm -f onprem_id_rsa
